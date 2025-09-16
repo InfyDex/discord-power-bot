@@ -1,108 +1,129 @@
 # Legion Discord Bot
 
-A simple Discord bot that responds to "hi" with random greetings in different languages from around the world! 🌍
+A multilingual Discord bot with a modular architecture designed for easy expansion and maintenance.
 
 ## Features
 
-- Responds to "hi" messages with random greetings in 20+ languages
-- Includes greetings in English, Spanish, French, German, Italian, Portuguese, Swedish, Dutch, Russian, Japanese, Korean, Chinese, Arabic, Hindi, Urdu, Zulu, Swahili, Hebrew, Greek, and Thai
-- Additional commands for manual greeting requests
-- Easy to set up and customize
+- **Multilingual Greetings**: Supports greetings in 30+ languages including English, Hindi, Spanish, French, German, Japanese, Arabic, and many more
+- **Smart Mention Response**: Responds helpfully when mentioned
+- **Modular Design**: Built with Discord.py cogs for easy feature addition
+- **Error Handling**: Comprehensive error handling with user-friendly messages
+- **Logging**: Built-in logging system for debugging and monitoring
+- **Utility Commands**: Bot information, uptime, ping, and admin commands
 
-## Setup Instructions
-
-### 1. Prerequisites
-- Python 3.8 or higher
-- A Discord account
-- Basic knowledge of creating Discord applications
-
-### 2. Create a Discord Bot
-1. Go to the [Discord Developer Portal](https://discord.com/developers/applications)
-2. Click "New Application" and give it a name
-3. Go to the "Bot" section in the left sidebar
-4. Click "Add Bot"
-5. Copy the bot token (you'll need this later)
-6. Under "Privileged Gateway Intents", enable "Message Content Intent"
-
-### 3. Install Dependencies
-```bash
-pip install -r requirements.txt
-```
-
-### 4. Configure the Bot
-1. Copy `.env.example` to `.env`:
-   ```bash
-   copy .env.example .env
-   ```
-2. Edit the `.env` file and replace `your_bot_token_here` with your actual bot token
-
-### 5. Invite the Bot to Your Server
-1. In the Discord Developer Portal, go to "OAuth2" > "URL Generator"
-2. Select scopes: `bot`
-3. Select bot permissions: `Send Messages`, `Read Message History`
-4. Use the generated URL to invite the bot to your server
-
-### 6. Run the Bot
-```bash
-python bot.py
-```
-
-## Usage
-
-### Automatic Responses
-- Simply type "hi" in any channel where the bot has access
-- The bot will respond with a random greeting in a different language
-
-### Commands
-- `!greet` - Get a random greeting manually
-- `!greetings` - See all available greetings the bot knows
-
-## Supported Languages
-
-The bot knows greetings in the following languages:
-- English, Spanish, French, German, Italian
-- Portuguese, Swedish, Dutch, Russian
-- Japanese, Korean, Chinese, Arabic
-- Hindi, Urdu, Zulu, Swahili
-- Hebrew, Greek, Thai
-
-## File Structure
+## Project Structure
 
 ```
 legion_discord_bot/
-├── bot.py              # Main bot code
+├── bot.py              # Main bot file
+├── config.py           # Configuration and environment handling
+├── constants.py        # Bot constants (greetings, messages, etc.)
 ├── requirements.txt    # Python dependencies
-├── .env.example       # Environment variables template
-├── .env              # Your actual environment variables (create this)
-└── README.md         # This file
+├── README.md          # This file
+├── .env               # Environment variables (create this)
+└── cogs/              # Bot modules/features
+    ├── __init__.py
+    ├── greetings.py    # Greeting functionality
+    ├── utilities.py    # Utility commands
+    └── error_handler.py # Error handling
 ```
 
-## Customization
+## Setup
 
-To add more greetings or languages, edit the `GREETINGS` list in `bot.py`:
+1. **Clone the repository** (or download the files)
 
-```python
-GREETINGS = [
-    "Your greeting! 👋",  # Your language
-    # ... add more greetings here
-]
-```
+2. **Install dependencies**:
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-## Troubleshooting
+3. **Create a `.env` file** in the root directory:
+   ```
+   DISCORD_BOT_TOKEN=your_bot_token_here
+   LOG_LEVEL=INFO
+   LOG_FILE=bot.log
+   ```
 
-### Bot doesn't respond
-- Make sure the bot has "Message Content Intent" enabled in Discord Developer Portal
-- Check that the bot has permission to read and send messages in the channel
-- Verify your bot token is correct in the `.env` file
+4. **Run the bot**:
+   ```bash
+   python bot.py
+   ```
 
-### Import errors
-- Make sure you've installed all requirements: `pip install -r requirements.txt`
-- Check that you're using Python 3.8 or higher
+## Commands
+
+### Greeting Commands
+- `!greet` - Get a random greeting
+- `!greetings` - List all available greetings
+
+### Utility Commands
+- `!ping` - Check bot latency
+- `!uptime` - Check bot uptime
+- `!info` - Display bot information
+
+### Admin Commands (Owner only)
+- `!reload <cog_name>` - Reload a specific cog
+
+## Adding New Features
+
+The bot is designed for easy expansion. To add new features:
+
+1. **Create a new cog** in the `cogs/` directory
+2. **Follow the cog template**:
+   ```python
+   from discord.ext import commands
+   
+   class YourFeature(commands.Cog):
+       def __init__(self, bot):
+           self.bot = bot
+       
+       @commands.command()
+       async def your_command(self, ctx):
+           await ctx.send("Your response")
+   
+   async def setup(bot):
+       await bot.add_cog(YourFeature(bot))
+   ```
+3. **The bot will automatically load** your new cog on restart
+
+## Configuration
+
+### Environment Variables
+- `DISCORD_BOT_TOKEN` - Your Discord bot token (required)
+- `LOG_LEVEL` - Logging level (DEBUG, INFO, WARNING, ERROR) - default: INFO
+- `LOG_FILE` - Log file path - default: bot.log
+
+### Constants
+Edit `constants.py` to:
+- Add new greetings to the `GREETINGS` list
+- Add new help messages to the `HELP_MESSAGES` list
+- Modify greeting trigger words in `GREETING_WORDS`
+- Change the command prefix in `COMMAND_PREFIX`
+
+## Error Handling
+
+The bot includes comprehensive error handling:
+- Command errors are logged and users receive friendly error messages
+- Bot errors are logged for debugging
+- Configuration errors are displayed on startup
+
+## Logging
+
+The bot automatically logs:
+- Bot startup and shutdown
+- Cog loading/reloading
+- Command errors
+- System errors
+
+Logs are written to both console and file (default: `bot.log`).
 
 ## Contributing
 
-Feel free to add more greetings in different languages or improve the bot's functionality!
+1. Follow the existing code structure
+2. Add new features as separate cogs
+3. Include proper error handling
+4. Document your changes
+5. Test thoroughly before submitting
 
 ## License
 
-This project is open source and available under the MIT License.
+This project is open source. Feel free to modify and distribute as needed.
