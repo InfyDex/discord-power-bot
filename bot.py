@@ -50,6 +50,22 @@ GREETINGS = [
     "Kumusta"       # Filipino
 ]
 
+# Help messages when bot is mentioned
+HELP_MESSAGES = [
+    # English help messages
+    "How can I help you today?",
+    "What can I do for you?",
+    "Need assistance with something?",
+    "How may I assist you?",
+    "What would you like to know?",
+    # Hindi help messages
+    "आज मैं आपकी कैसे मदद कर सकता हूँ?",
+    "मैं आपके लिए क्या कर सकता हूँ?",
+    "क्या आपको किसी चीज़ में सहायता चाहिए?",
+    "मैं आपकी कैसे सेवा कर सकता हूँ?",
+    "आप क्या जानना चाहते हैं?"
+]
+
 @bot.event
 async def on_ready():
     print(f'{bot.user} has connected to Discord!')
@@ -59,6 +75,13 @@ async def on_ready():
 async def on_message(message):
     # Don't respond to the bot's own messages
     if message.author == bot.user:
+        return
+    
+    # Check if bot is mentioned without any other content
+    if bot.user.mentioned_in(message) and len(message.content.strip().replace(f'<@{bot.user.id}>', '').replace(f'<@!{bot.user.id}>', '').strip()) == 0:
+        # Bot was mentioned with no other text
+        help_msg = random.choice(HELP_MESSAGES)
+        await message.channel.send(f"{help_msg} {message.author.mention}!")
         return
     
     # Check if the message content is a greeting (case insensitive)
