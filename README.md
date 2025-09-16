@@ -23,6 +23,7 @@ legion_discord_bot/
 ├── constants.py        # Bot constants (greetings, messages, etc.)
 ├── requirements.txt    # Python dependencies
 ├── README.md          # This file
+├── COMMANDS.md        # Complete commands reference
 ├── .env               # Environment variables (create this)
 └── cogs/              # Bot modules/features
     ├── __init__.py
@@ -55,32 +56,14 @@ legion_discord_bot/
 
 ## Commands
 
-### Greeting Commands
-- `!greet` - Get a random greeting
-- `!greetings` - List all available greetings
+📋 **For a complete list of all available commands, see [COMMANDS.md](COMMANDS.md)**
 
-### Game Commands
-**Slash Commands (Recommended):**
-- `/flip` - Flip a coin and get heads or tails
-- `/roll [dice_notation]` - Roll dice with notation like 1d6, 2d20, d100
+The bot supports both modern slash commands (`/command`) and traditional prefix commands (`!command`). Key features include:
 
-**Prefix Commands (Alternative):**
-- `!flip`, `!coin`, `!coinflip` - Flip a coin and get heads or tails
-- `!roll [dice_notation]`, `!dice`, `!r` - Roll dice with standard notation
-
-**Dice Notation Examples:**
-- `1d6` or `d6` - Roll a single 6-sided die
-- `2d20` - Roll two 20-sided dice
-- `3d8` - Roll three 8-sided dice
-- `d100` - Roll a 100-sided die
-
-### Utility Commands
-- `!ping` - Check bot latency
-- `!uptime` - Check bot uptime
-- `!info` - Display bot information
-
-### Admin Commands (Owner only)
-- `!reload <cog_name>` - Reload a specific cog
+- **Game Commands**: Dice rolling, coin flipping
+- **Greeting Commands**: Multilingual greetings and responses  
+- **Utility Commands**: Bot info, ping, uptime
+- **Admin Commands**: Cog management (owner only)
 
 ## Adding New Features
 
@@ -103,6 +86,7 @@ The bot is designed for easy expansion. To add new features:
        await bot.add_cog(YourFeature(bot))
    ```
 3. **The bot will automatically load** your new cog on restart
+4. **Update documentation** by adding your new commands to `COMMANDS.md`
 
 ## Configuration
 

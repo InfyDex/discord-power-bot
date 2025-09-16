@@ -1,0 +1,190 @@
+# Legion Discord Bot - Commands Reference
+
+This document contains all available commands for the Legion Discord Bot. Commands are organized by category for easy reference.
+
+## 📋 Command Types
+
+The bot supports both modern **Slash Commands** (`/command`) and traditional **Prefix Commands** (`!command`). You can use either type based on your preference.
+
+---
+
+## 🎮 Game Commands
+
+### Coin Flip
+Flip a virtual coin and get heads or tails.
+
+**Slash Command:**
+- `/flip` - Flip a coin
+
+**Prefix Commands:**
+- `!flip` - Flip a coin
+- `!coin` - Flip a coin (alias)
+- `!coinflip` - Flip a coin (alias)
+
+**Example:** `/flip` or `!flip`
+
+---
+
+### Dice Rolling
+Roll dice using standard tabletop gaming notation.
+
+**Slash Command:**
+- `/roll [dice_notation]` - Roll dice with specified notation
+
+**Prefix Commands:**
+- `!roll [dice_notation]` - Roll dice with specified notation
+- `!dice [dice_notation]` - Roll dice (alias)
+- `!r [dice_notation]` - Roll dice (short alias)
+
+**Dice Notation Examples:**
+- `1d6` or `d6` - Roll a single 6-sided die
+- `2d20` - Roll two 20-sided dice
+- `3d8` - Roll three 8-sided dice
+- `d100` - Roll a 100-sided die
+- `4d6` - Roll four 6-sided dice
+
+**Examples:** 
+- `/roll 2d20` or `!roll 2d20`
+- `/roll d100` or `!dice d100`
+- `/roll` or `!r` (defaults to 1d6)
+
+**Limits:**
+- Number of dice: 1-20
+- Dice sides: 2-1000
+
+---
+
+## 👋 Greeting Commands
+
+### Random Greeting
+Get a random greeting from the bot's multilingual collection.
+
+**Command:**
+- `!greet` - Get a random greeting
+
+**Example:** `!greet`
+
+---
+
+### List All Greetings
+See all available greetings in the bot's database.
+
+**Command:**
+- `!greetings` - Display all available greetings
+
+**Example:** `!greetings`
+
+---
+
+### Automatic Greetings
+The bot automatically responds to greeting messages and mentions.
+
+**Triggers:**
+- Send any greeting word (hello, hi, hey, etc.)
+- Mention the bot with no other text
+
+**Supported Greeting Words:**
+- English: hello, hi, hey, greetings, good morning, good afternoon, good evening
+- And many more in 30+ languages!
+
+---
+
+## 🔧 Utility Commands
+
+### Bot Information
+Display comprehensive information about the bot.
+
+**Command:**
+- `!info` - Show bot statistics and system information
+
+**Example:** `!info`
+
+**Displays:**
+- Bot statistics (servers, users, latency)
+- System information (CPU, memory usage)
+- Bot version and ID
+
+---
+
+### Ping Test
+Check the bot's response time and connection status.
+
+**Command:**
+- `!ping` - Test bot latency
+
+**Example:** `!ping`
+
+---
+
+### Uptime
+Check how long the bot has been running.
+
+**Command:**
+- `!uptime` - Show bot uptime
+
+**Example:** `!uptime`
+
+---
+
+## ⚙️ Admin Commands
+
+These commands are restricted to the bot owner only.
+
+### Reload Cog
+Reload a specific bot module without restarting the entire bot.
+
+**Command:**
+- `!reload <cog_name>` - Reload a specific cog
+
+**Example:** `!reload games`
+
+**Available Cogs:**
+- `games` - Game commands (flip, roll)
+- `greetings` - Greeting functionality
+- `utilities` - Utility commands
+- `error_handler` - Error handling
+
+---
+
+## 🆘 Error Handling
+
+The bot provides helpful error messages for common issues:
+
+- **Invalid dice notation** - Guidance on proper format
+- **Permission errors** - Clear explanation of missing permissions
+- **Cooldown messages** - Information about command cooldowns
+- **Missing arguments** - Helpful hints about required parameters
+
+All error messages use professional embeds and mention the user who triggered them.
+
+---
+
+## 📝 Notes
+
+### Slash Commands vs Prefix Commands
+- **Slash Commands** (`/command`) provide autocomplete, parameter hints, and a modern Discord experience
+- **Prefix Commands** (`!command`) offer traditional bot interaction for users who prefer the classic style
+- Both command types provide identical functionality
+
+### Mentions and Responses
+- All bot responses mention the user who initiated the command
+- Embed footers show "Requested by @username"
+- Error messages are personalized and user-friendly
+
+### Adding New Commands
+This document will be updated whenever new commands are added to the bot. Check back regularly for new features!
+
+---
+
+## 🎯 Quick Reference
+
+| Category | Slash Commands | Prefix Commands |
+|----------|---------------|-----------------|
+| **Games** | `/flip`, `/roll` | `!flip`, `!coin`, `!roll`, `!dice`, `!r` |
+| **Greetings** | - | `!greet`, `!greetings` |
+| **Utilities** | - | `!info`, `!ping`, `!uptime` |
+| **Admin** | - | `!reload` |
+
+---
+
+*Last Updated: September 17, 2025*
