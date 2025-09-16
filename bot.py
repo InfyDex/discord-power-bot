@@ -14,26 +14,40 @@ bot = commands.Bot(command_prefix='!', intents=intents)
 
 # Random greetings in different languages
 GREETINGS = [
-    "Hello! 👋",  # English
-    "Hola! 👋",   # Spanish
-    "Bonjour! 👋",  # French
-    "Guten Tag! 👋",  # German
-    "Ciao! 👋",   # Italian
-    "Olá! 👋",    # Portuguese
-    "Hej! 👋",    # Swedish
-    "Hallo! 👋",  # Dutch
-    "Привет! 👋",  # Russian
-    "こんにちは! 👋",  # Japanese
-    "안녕하세요! 👋",  # Korean
-    "你好! 👋",    # Chinese
-    "مرحبا! 👋",   # Arabic
-    "नमस्ते! 👋",   # Hindi
-    "Salaam! 👋", # Urdu
-    "Sawubona! 👋",  # Zulu
-    "Jambo! 👋",  # Swahili
-    "Shalom! 👋", # Hebrew
-    "Γεια σας! 👋",  # Greek
-    "สวัสดี! 👋",  # Thai
+    "Hello there",  # English
+    "Hey there",    # English casual
+    "Hi",           # English simple
+    "Good day",     # English formal
+    "Greetings",    # English formal
+    "What's up",    # English casual
+    "Howdy",        # English casual
+    "नमस्ते",        # Hindi
+    "नमस्कार",       # Hindi formal
+    "आदाब",         # Hindi/Urdu
+    "राम राम",       # Hindi traditional
+    "जय हिंद",       # Hindi patriotic
+    "Hola",         # Spanish
+    "Bonjour",      # French
+    "Guten Tag",    # German
+    "Ciao",         # Italian
+    "Olá",          # Portuguese
+    "Hej",          # Swedish
+    "Hallo",        # Dutch
+    "Привет",       # Russian
+    "こんにちは",      # Japanese
+    "안녕하세요",      # Korean
+    "你好",          # Chinese
+    "مرحبا",        # Arabic
+    "Salaam",       # Urdu
+    "Sawubona",     # Zulu
+    "Jambo",        # Swahili
+    "Shalom",       # Hebrew
+    "Γεια σας",      # Greek
+    "สวัสดี",        # Thai
+    "Xin chào",     # Vietnamese
+    "Zdravo",       # Serbian
+    "Halo",         # Indonesian
+    "Kumusta"       # Filipino
 ]
 
 @bot.event
@@ -47,11 +61,12 @@ async def on_message(message):
     if message.author == bot.user:
         return
     
-    # Check if the message content is "hi" (case insensitive)
-    if message.content.lower() == 'hi':
+    # Check if the message content is a greeting (case insensitive)
+    greeting_words = ['hi', 'hello', 'hey', 'hola', 'bonjour', 'hallo', 'ciao']
+    if message.content.lower().strip() in greeting_words:
         # Select a random greeting
         greeting = random.choice(GREETINGS)
-        await message.channel.send(f"{greeting} {message.author.mention}")
+        await message.channel.send(f"{greeting} {message.author.mention}!")
     
     # Process other commands
     await bot.process_commands(message)
