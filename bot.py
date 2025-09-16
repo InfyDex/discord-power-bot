@@ -34,6 +34,13 @@ class LegionBot(commands.Bot):
         # Load all cogs
         await self.load_cogs()
         
+        # Sync slash commands
+        try:
+            synced = await self.tree.sync()
+            self.logger.info(f"Synced {len(synced)} command(s)")
+        except Exception as e:
+            self.logger.error(f"Failed to sync commands: {e}")
+        
         self.logger.info("Bot setup completed successfully!")
     
     async def load_cogs(self):

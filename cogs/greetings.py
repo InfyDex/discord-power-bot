@@ -7,6 +7,7 @@ import discord
 from discord.ext import commands
 import random
 from constants import GREETINGS, HELP_MESSAGES, GREETING_WORDS
+from .utilities import EmbedUtils
 
 class Greetings(commands.Cog):
     """Cog for handling greetings and basic interactions"""
@@ -47,28 +48,25 @@ class Greetings(commands.Cog):
     @commands.command(name='greetings')
     async def list_greetings(self, ctx):
         """Command to see all available greetings"""
-        greetings_text = "Here are all the greetings I know:\n" + "\n".join(GREETINGS)
+        # Create embed for greetings list
+        embed = EmbedUtils.create_info_embed(
+            title="🌍 Available Greetings",
+            description="Here are all the greetings I know:",
+            author_user=ctx.author
+        )
         
-        # If the message is too long, split it into multiple messages
-        if len(greetings_text) > 2000:
-            # Split into chunks
-            chunks = []
-            current_chunk = "Here are all the greetings I know:\n"
-            
-            for greeting in GREETINGS:
-                if len(current_chunk + greeting + "\n") > 1900:  # Leave some buffer
-                    chunks.append(current_chunk)
-                    current_chunk = greeting + "\n"
-                else:
-                    current_chunk += greeting + "\n"
-            
-            if current_chunk:
-                chunks.append(current_chunk)
-            
-            for chunk in chunks:
-                await ctx.send(chunk)
-        else:
-            await ctx.send(greetings_text)
+        # Group greetings for better presentation
+        greetings_per_field = 10
+        for i in range(0, len(GREETINGS), greetings_per_field):
+            chunk = GREETINGS[i:i + greetings_per_field]
+            field_name = f"Greetings {i//greetings_per_field + 1}" if len(GREETINGS) > greetings_per_field else "Greetings"
+            embed.add_field(
+                name=field_name,
+                value="\n".join(chunk),
+                inline=True
+            )
+        
+        await ctx.send(embed=embed)
 
 async def setup(bot):
     """Setup function to add this cog to the bot"""

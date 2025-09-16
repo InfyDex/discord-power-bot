@@ -10,6 +10,69 @@ import psutil
 import os
 
 
+class EmbedUtils:
+    """Utility class for creating consistent embed messages"""
+    
+    @staticmethod
+    def create_standard_embed(title: str, description: str = None, color: int = 0x00ff00, 
+                            author_user=None, footer_text: str = None):
+        """
+        Create a standard embed with consistent formatting
+        
+        Args:
+            title: The embed title
+            description: Optional description
+            color: Embed color (default: green)
+            author_user: Optional discord.User/Member object for mention in footer
+            footer_text: Optional custom footer text
+        
+        Returns:
+            discord.Embed: Formatted embed object
+        """
+        embed = discord.Embed(
+            title=title,
+            description=description,
+            color=color
+        )
+        
+        if footer_text:
+            embed.set_footer(text=footer_text)
+        elif author_user:
+            embed.set_footer(text=f"Requested by {author_user.mention}")
+            
+        return embed
+    
+    @staticmethod
+    def create_success_embed(title: str, description: str = None, author_user=None):
+        """Create a success embed with green color"""
+        return EmbedUtils.create_standard_embed(
+            title=title, 
+            description=description, 
+            color=0x00ff00,  # Green
+            author_user=author_user
+        )
+    
+    @staticmethod
+    def create_error_embed(title: str, description: str = None, author_user=None):
+        """Create an error embed with red color"""
+        return EmbedUtils.create_standard_embed(
+            title=title, 
+            description=description, 
+            color=0xff0000,  # Red
+            author_user=author_user
+        )
+    
+    @staticmethod
+    def create_info_embed(title: str, description: str = None, author_user=None):
+        """Create an info embed with blue color"""
+        return EmbedUtils.create_standard_embed(
+            title=title, 
+            description=description, 
+            color=0x0099ff,  # Blue
+            author_user=author_user
+        )
+
+
 class Utilities(commands.Cog):
     """Cog for utility commands"""
     
@@ -33,10 +96,10 @@ class Utilities(commands.Cog):
     @commands.command(name='info')
     async def info_command(self, ctx):
         """Display bot information"""
-        embed = discord.Embed(
+        embed = EmbedUtils.create_info_embed(
             title="Legion Discord Bot",
             description="A multilingual greeting bot with modular architecture",
-            color=discord.Color.blue()
+            author_user=ctx.author
         )
         
         embed.add_field(

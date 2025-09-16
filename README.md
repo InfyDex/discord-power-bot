@@ -6,6 +6,9 @@ A multilingual Discord bot with a modular architecture designed for easy expansi
 
 - **Multilingual Greetings**: Supports greetings in 30+ languages including English, Hindi, Spanish, French, German, Japanese, Arabic, and many more
 - **Smart Mention Response**: Responds helpfully when mentioned
+- **Game Commands**: Interactive games like dice rolling and coin flipping with both slash (/) and prefix (!) commands
+- **Modern Slash Commands**: Full support for Discord's slash command system with autocomplete and descriptions
+- **Consistent Embed Responses**: Professional, uniform embed formatting across all bot responses
 - **Modular Design**: Built with Discord.py cogs for easy feature addition
 - **Error Handling**: Comprehensive error handling with user-friendly messages
 - **Logging**: Built-in logging system for debugging and monitoring
@@ -24,7 +27,8 @@ legion_discord_bot/
 └── cogs/              # Bot modules/features
     ├── __init__.py
     ├── greetings.py    # Greeting functionality
-    ├── utilities.py    # Utility commands
+    ├── games.py        # Game commands (dice, coin flip)
+    ├── utilities.py    # Utility commands and embed utilities
     └── error_handler.py # Error handling
 ```
 
@@ -54,6 +58,21 @@ legion_discord_bot/
 ### Greeting Commands
 - `!greet` - Get a random greeting
 - `!greetings` - List all available greetings
+
+### Game Commands
+**Slash Commands (Recommended):**
+- `/flip` - Flip a coin and get heads or tails
+- `/roll [dice_notation]` - Roll dice with notation like 1d6, 2d20, d100
+
+**Prefix Commands (Alternative):**
+- `!flip`, `!coin`, `!coinflip` - Flip a coin and get heads or tails
+- `!roll [dice_notation]`, `!dice`, `!r` - Roll dice with standard notation
+
+**Dice Notation Examples:**
+- `1d6` or `d6` - Roll a single 6-sided die
+- `2d20` - Roll two 20-sided dice
+- `3d8` - Roll three 8-sided dice
+- `d100` - Roll a 100-sided die
 
 ### Utility Commands
 - `!ping` - Check bot latency
