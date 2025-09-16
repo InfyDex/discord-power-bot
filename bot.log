@@ -1,0 +1,16 @@
+2025-09-17 01:57:13,356 - discord.client - INFO - logging in using static token
+2025-09-17 01:57:14,362 - legion_bot - INFO - Loaded cog: cogs.error_handler
+2025-09-17 01:57:14,366 - legion_bot - INFO - Loaded cog: cogs.greetings
+2025-09-17 01:57:14,370 - legion_bot - ERROR - Failed to load cog cogs.utilities: Extension 'cogs.utilities' raised an error: ModuleNotFoundError: No module named 'psutil'
+2025-09-17 01:57:14,370 - legion_bot - INFO - Bot setup completed successfully!
+2025-09-17 01:57:15,275 - discord.gateway - INFO - Shard ID None has connected to Gateway (Session ID: 4a26ccce8c52dc0ff78daa591b0172df).
+2025-09-17 01:57:17,386 - legion_bot - INFO - Agriya Assasins MB#7698 has connected to Discord!
+2025-09-17 01:57:17,386 - legion_bot - INFO - Bot is ready and listening for messages!
+2025-09-17 01:57:37,343 - discord.client - INFO - logging in using static token
+2025-09-17 01:57:38,335 - legion_bot - INFO - Loaded cog: cogs.error_handler
+2025-09-17 01:57:38,337 - legion_bot - INFO - Loaded cog: cogs.greetings
+2025-09-17 01:57:38,382 - legion_bot - ERROR - Failed to load cog cogs.utilities: Extension 'cogs.utilities' raised an error: TypeError: Commands or listeners must not start with cog_ or bot_ (in method Utilities.bot_info)
+2025-09-17 01:57:38,383 - legion_bot - INFO - Bot setup completed successfully!
+2025-09-17 01:57:39,111 - discord.gateway - INFO - Shard ID None has connected to Gateway (Session ID: 76e31f1c09fd2e960c9ed7629d11ca9e).
+2025-09-17 01:57:41,320 - legion_bot - INFO - Agriya Assasins MB#7698 has connected to Discord!
+2025-09-17 01:57:41,320 - legion_bot - INFO - Bot is ready and listening for messages!

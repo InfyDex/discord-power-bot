@@ -1,122 +1,100 @@
+"""
+Legion Discord Bot
+A multilingual Discord bot with greeting functionality and modular design.
+"""
+
 import discord
 from discord.ext import commands
-import random
+import asyncio
 import os
-from dotenv import load_dotenv
+from config import Config
 
-# Load environment variables
-load_dotenv()
 
-# Bot setup
-intents = discord.Intents.default()
-intents.message_content = True
-bot = commands.Bot(command_prefix='!', intents=intents)
-
-# Random greetings in different languages
-GREETINGS = [
-    "Hello there",  # English
-    "Hey there",    # English casual
-    "Hi",           # English simple
-    "Good day",     # English formal
-    "Greetings",    # English formal
-    "What's up",    # English casual
-    "Howdy",        # English casual
-    "नमस्ते",        # Hindi
-    "नमस्कार",       # Hindi formal
-    "आदाब",         # Hindi/Urdu
-    "राम राम",       # Hindi traditional
-    "जय हिंद",       # Hindi patriotic
-    "Hola",         # Spanish
-    "Bonjour",      # French
-    "Guten Tag",    # German
-    "Ciao",         # Italian
-    "Olá",          # Portuguese
-    "Hej",          # Swedish
-    "Hallo",        # Dutch
-    "Привет",       # Russian
-    "こんにちは",      # Japanese
-    "안녕하세요",      # Korean
-    "你好",          # Chinese
-    "مرحبا",        # Arabic
-    "Salaam",       # Urdu
-    "Sawubona",     # Zulu
-    "Jambo",        # Swahili
-    "Shalom",       # Hebrew
-    "Γεια σας",      # Greek
-    "สวัสดี",        # Thai
-    "Xin chào",     # Vietnamese
-    "Zdravo",       # Serbian
-    "Halo",         # Indonesian
-    "Kumusta"       # Filipino
-]
-
-# Help messages when bot is mentioned
-HELP_MESSAGES = [
-    # English help messages
-    "How can I help you today?",
-    "What can I do for you?",
-    "Need assistance with something?",
-    "How may I assist you?",
-    "What would you like to know?",
-    # Hindi help messages
-    "आज मैं आपकी कैसे मदद कर सकता हूँ?",
-    "मैं आपके लिए क्या कर सकता हूँ?",
-    "क्या आपको किसी चीज़ में सहायता चाहिए?",
-    "मैं आपकी कैसे सेवा कर सकता हूँ?",
-    "आप क्या जानना चाहते हैं?"
-]
-
-@bot.event
-async def on_ready():
-    print(f'{bot.user} has connected to Discord!')
-    print(f'Bot is ready and listening for messages!')
-
-@bot.event
-async def on_message(message):
-    # Don't respond to the bot's own messages
-    if message.author == bot.user:
-        return
+class LegionBot(commands.Bot):
+    """Main bot class with enhanced functionality"""
     
-    # Check if bot is mentioned without any other content
-    if bot.user.mentioned_in(message) and len(message.content.strip().replace(f'<@{bot.user.id}>', '').replace(f'<@!{bot.user.id}>', '').strip()) == 0:
-        # Bot was mentioned with no other text
-        help_msg = random.choice(HELP_MESSAGES)
-        await message.channel.send(f"{help_msg} {message.author.mention}!")
-        return
+    def __init__(self):
+        # Setup bot configuration
+        intents = discord.Intents.default()
+        intents.message_content = True
+        
+        super().__init__(
+            command_prefix=Config.COMMAND_PREFIX,
+            intents=intents,
+            help_command=commands.DefaultHelpCommand(
+                no_category='General Commands'
+            )
+        )
+        
+        # Setup logging
+        self.logger = Config.setup_logging()
     
-    # Check if the message content is a greeting (case insensitive)
-    greeting_words = ['hi', 'hello', 'hey', 'hola', 'bonjour', 'hallo', 'ciao']
-    if message.content.lower().strip() in greeting_words:
-        # Select a random greeting
-        greeting = random.choice(GREETINGS)
-        await message.channel.send(f"{greeting} {message.author.mention}!")
+    async def setup_hook(self):
+        """Setup hook called when bot is starting up"""
+        # Load all cogs
+        await self.load_cogs()
+        
+        self.logger.info("Bot setup completed successfully!")
     
-    # Process other commands
-    await bot.process_commands(message)
-
-@bot.command(name='greet')
-async def greet_command(ctx):
-    """Command to get a random greeting"""
-    greeting = random.choice(GREETINGS)
-    await ctx.send(f"{greeting} {ctx.author.mention}")
-
-@bot.command(name='greetings')
-async def list_greetings(ctx):
-    """Command to see all available greetings"""
-    greetings_text = "Here are all the greetings I know:\n" + "\n".join(GREETINGS)
-    await ctx.send(greetings_text)
-
-# Run the bot
-if __name__ == "__main__":
-    token = os.getenv('DISCORD_BOT_TOKEN')
-    if not token:
-        print("Error: DISCORD_BOT_TOKEN not found in environment variables!")
-        print("Please create a .env file with your bot token.")
-        exit(1)
+    async def load_cogs(self):
+        """Load all cogs from the cogs directory"""
+        cog_files = []
+        
+        # Get all Python files in cogs directory
+        cogs_path = os.path.join(os.path.dirname(__file__), 'cogs')
+        if os.path.exists(cogs_path):
+            for filename in os.listdir(cogs_path):
+                if filename.endswith('.py') and not filename.startswith('__'):
+                    cog_files.append(f'cogs.{filename[:-3]}')
+        
+        # Load each cog
+        for cog in cog_files:
+            try:
+                await self.load_extension(cog)
+                self.logger.info(f"Loaded cog: {cog}")
+            except Exception as e:
+                self.logger.error(f"Failed to load cog {cog}: {e}")
     
+    async def on_ready(self):
+        """Event triggered when bot is ready"""
+        self.logger.info(f'{self.user} has connected to Discord!')
+        self.logger.info(f'Bot is ready and listening for messages!')
+        
+        # Set bot status
+        await self.change_presence(
+            activity=discord.Game(name="Greeting people worldwide! 🌍")
+        )
+
+
+# Create bot instance
+bot = LegionBot()
+
+async def main():
+    """Main function to run the bot with proper error handling"""
     try:
-        bot.run(token)
+        # Validate configuration
+        Config.validate_config()
+        
+        # Start the bot
+        async with bot:
+            await bot.start(Config.DISCORD_BOT_TOKEN)
+            
+    except ValueError as e:
+        print(f"Configuration Error: {e}")
+        print("Please create a .env file with your bot token.")
+        return 1
     except discord.LoginFailure:
         print("Error: Invalid bot token!")
+        return 1
     except Exception as e:
         print(f"Error starting bot: {e}")
+        return 1
+
+
+if __name__ == "__main__":
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        print("\nBot stopped by user.")
+    except Exception as e:
+        print(f"Unexpected error: {e}")
