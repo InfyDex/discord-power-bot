@@ -24,9 +24,9 @@ class Pokemon(commands.Cog):
         self.pokemon_database = self.load_pokemon_database()
         self.wild_spawn_data = self.load_wild_spawn_data()
         self.spawn_task = None
+        self._spawn_task_started = False
         
-        # Start the wild spawn task
-        self.start_wild_spawn_task()
+        # Don't start the spawn task immediately - wait for bot to be ready
     
     def load_wild_spawn_data(self):
         """Load wild spawn data from JSON file"""
@@ -88,6 +88,15 @@ class Pokemon(commands.Cog):
         
         return None
     
+    @commands.Cog.listener()
+    async def on_ready(self):
+        """Event listener that triggers when the bot is ready and connected to guilds"""
+        # Only start the spawn task once, after the bot is connected
+        if not self._spawn_task_started and len(self.bot.guilds) > 0:
+            self.start_wild_spawn_task()
+            self._spawn_task_started = True
+            print(f"Wild Pokemon spawn task started! Bot is connected to {len(self.bot.guilds)} guild(s)")
+    
     async def spawn_wild_pokemon(self):
         """Spawn a wild Pokemon in the designated channel"""
         try:
@@ -121,12 +130,26 @@ class Pokemon(commands.Cog):
                         break
             
             if not channel:
-                print(f"Pokemon spawn channel '{target_channel_name}' not found in any guild!")
-                print("Please make sure:")
-                print("1. The bot has access to the channel")
-                print("2. The channel name is exactly 'pokemon' (lowercase)")
-                print("3. The bot has 'View Channels' and 'Send Messages' permissions")
+                # Don't spam the console on every failed attempt
+                # Only log if this is the first few attempts or intermittently
+                if not hasattr(self, '_spawn_error_count'):
+                    self._spawn_error_count = 0
+                
+                self._spawn_error_count += 1
+                
+                # Log error every 10 attempts to avoid spam
+                if self._spawn_error_count <= 3 or self._spawn_error_count % 10 == 0:
+                    print(f"Pokemon spawn channel '{target_channel_name}' not found in any guild! (Attempt {self._spawn_error_count})")
+                    if self._spawn_error_count <= 3:
+                        print("Please make sure:")
+                        print("1. The bot has access to the channel")
+                        print("2. The channel name is exactly 'pokemon' (lowercase)")
+                        print("3. The bot has 'View Channels' and 'Send Messages' permissions")
                 return
+            
+            # Reset error counter on successful channel find
+            if hasattr(self, '_spawn_error_count'):
+                self._spawn_error_count = 0
             
             # Get a common or uncommon Pokemon
             pokemon = self.get_common_uncommon_pokemon()

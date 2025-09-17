@@ -12,6 +12,7 @@ bot.log
 
 # Game data files
 pokemon_data.json
+wild_spawn_data.json
 
 # IDE files
 .vscode/
