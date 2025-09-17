@@ -487,6 +487,113 @@ class Pokemon(commands.Cog):
         
         await ctx.send(embed=embed)
     
+    @commands.command(name='inventory', aliases=['inv', 'bag'])
+    async def pokemon_inventory(self, ctx):
+        """View your Pokemon inventory and items"""
+        user_id = str(ctx.author.id)
+        self.initialize_player(user_id)
+        
+        # Get player data
+        player_data = self.player_data[user_id]
+        pokeballs = player_data["pokeballs"]
+        stats = player_data["stats"]
+        pokemon_count = len(player_data["pokemon"])
+        
+        # Create inventory embed
+        embed = discord.Embed(
+            title=f"🎒 {ctx.author.display_name}'s Inventory",
+            description="Your Pokemon trainer inventory and items",
+            color=discord.Color.green()
+        )
+        
+        # Add user avatar
+        embed.set_thumbnail(url=ctx.author.display_avatar.url)
+        
+        # Pokeballs section
+        normal_balls = pokeballs.get("normal", 0)
+        master_balls = pokeballs.get("master", 0)
+        
+        pokeball_text = f"⚾ **Normal Pokeballs:** {normal_balls}\n🌟 **Master Balls:** {master_balls}"
+        total_balls = normal_balls + master_balls
+        pokeball_text += f"\n📊 **Total Pokeballs:** {total_balls}"
+        
+        embed.add_field(
+            name="⚾ Pokeballs", 
+            value=pokeball_text, 
+            inline=True
+        )
+        
+        # Pokemon collection summary
+        if pokemon_count > 0:
+            # Get rarity breakdown
+            rarity_counts = {"Common": 0, "Uncommon": 0, "Rare": 0, "Legendary": 0}
+            for pokemon in player_data["pokemon"]:
+                rarity = pokemon.get('rarity', 'Common')
+                if rarity in rarity_counts:
+                    rarity_counts[rarity] += 1
+            
+            collection_text = f"🏆 **Total Pokemon:** {pokemon_count}\n"
+            collection_text += f"🟡 **Legendary:** {rarity_counts['Legendary']}\n"
+            collection_text += f"🔵 **Rare:** {rarity_counts['Rare']}\n"
+            collection_text += f"🟢 **Uncommon:** {rarity_counts['Uncommon']}\n"
+            collection_text += f"⚪ **Common:** {rarity_counts['Common']}"
+        else:
+            collection_text = "🏆 **Total Pokemon:** 0\nNo Pokemon caught yet!"
+        
+        embed.add_field(
+            name="📖 Pokemon Collection", 
+            value=collection_text, 
+            inline=True
+        )
+        
+        # Trainer stats
+        total_encounters = stats.get("total_encounters", 0)
+        total_caught = stats.get("total_caught", 0)
+        catch_rate = (total_caught / total_encounters * 100) if total_encounters > 0 else 0
+        
+        stats_text = f"👁️ **Encounters:** {total_encounters}\n"
+        stats_text += f"🎯 **Catch Rate:** {catch_rate:.1f}%\n"
+        
+        # Join date
+        join_date = datetime.fromisoformat(stats["join_date"]).strftime("%B %d, %Y")
+        stats_text += f"📅 **Trainer Since:** {join_date}"
+        
+        embed.add_field(
+            name="📊 Trainer Stats", 
+            value=stats_text, 
+            inline=False
+        )
+        
+        # Add tips section
+        tips_text = "💡 Use `!encounter` to find wild Pokemon\n"
+        tips_text += "💡 Use `!catch normal` or `!catch master` to catch Pokemon\n"
+        tips_text += "💡 Use `!collection` to view your Pokemon"
+        
+        embed.add_field(
+            name="💡 Quick Tips", 
+            value=tips_text, 
+            inline=False
+        )
+        
+        # Footer with current encounter status
+        current_encounter = player_data.get("current_encounter")
+        if current_encounter:
+            footer_text = f"🌿 Active Encounter: {current_encounter['name']} | Ready to catch!"
+        else:
+            # Check cooldown
+            if self.can_encounter(user_id):
+                footer_text = "✅ Ready for next encounter!"
+            else:
+                last_encounter = datetime.fromisoformat(player_data["last_encounter"])
+                next_encounter = last_encounter + timedelta(minutes=5)
+                time_left = next_encounter - datetime.now()
+                minutes_left = int(time_left.total_seconds() / 60) + 1
+                footer_text = f"⏰ Next encounter in {minutes_left} minute(s)"
+        
+        embed.set_footer(text=footer_text)
+        
+        await ctx.send(embed=embed)
+    
     @commands.command(name='pokemon_info', aliases=['pinfo', 'pokemon_detail'])
     async def pokemon_info(self, ctx, *, pokemon_identifier):
         """View detailed information about a specific Pokemon in your collection"""
