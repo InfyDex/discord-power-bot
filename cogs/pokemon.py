@@ -559,37 +559,7 @@ class Pokemon(commands.Cog):
         
         embed.add_field(name="🎯 Database Status", value=status_text, inline=False)
         
-        embed.set_footer(text=f"Admin: {ctx.author.display_name} | Use !expand_pokemon to add more Pokemon")
-        
-        await ctx.send(embed=embed)
-    
-    @commands.command(name='expand_pokemon')
-    async def expand_pokemon_database(self, ctx):
-        """Admin command to expand the Pokemon database"""
-        if not Config.is_admin(ctx.author.id):
-            embed = discord.Embed(
-                title="❌ Access Denied",
-                description="You don't have permission to use admin commands.",
-                color=discord.Color.red()
-            )
-            await ctx.send(embed=embed)
-            return
-        
-        embed = discord.Embed(
-            title="🚧 Database Expansion",
-            description="To expand the Pokemon database to all 1025+ Pokemon:\n\n" +
-                       "1. Run the database generator script\n" +
-                       "2. The bot will automatically load new Pokemon\n" +
-                       "3. Use `!pokemon_admin` to check updated stats\n\n" +
-                       "*This feature requires manual database expansion.*",
-            color=discord.Color.orange()
-        )
-        
-        embed.add_field(
-            name="📝 Current Status",
-            value=f"Database has {len(self.pokemon_database)} Pokemon\nTarget: 1025+ Pokemon from all generations",
-            inline=False
-        )
+        embed.set_footer(text=f"Admin: {ctx.author.display_name} | Complete Pokemon Database - All 1025 Pokemon Available")
         
         await ctx.send(embed=embed)
 
