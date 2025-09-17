@@ -10,13 +10,8 @@ import json
 import os
 from datetime import datetime, timedelta
 from .utilities import EmbedUtils
-from pokemon_database import (
-    POKEMON_DATABASE, 
-    get_random_pokemon_by_rarity, 
-    get_pokemon_by_id, 
-    get_pokemon_by_name,
-    get_type_color
-)
+import config
+from config import Config
 
 class Pokemon(commands.Cog):
     """Cog for Pokemon game functionality"""
@@ -24,7 +19,82 @@ class Pokemon(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.data_file = "pokemon_data.json"
+        self.pokemon_db_file = "pokemon_master_database.json"
         self.player_data = self.load_player_data()
+        self.pokemon_database = self.load_pokemon_database()
+    
+    def load_pokemon_database(self):
+        """Load the Pokemon database from JSON file"""
+        try:
+            with open(self.pokemon_db_file, 'r', encoding='utf-8') as f:
+                db = json.load(f)
+                # Convert string keys to integers
+                return {int(k): v for k, v in db.items()}
+        except FileNotFoundError:
+            print(f"Pokemon database file {self.pokemon_db_file} not found!")
+            return {}
+        except json.JSONDecodeError:
+            print(f"Error decoding {self.pokemon_db_file}")
+            return {}
+    
+    def get_pokemon_by_id(self, pokemon_id):
+        """Get Pokemon data by ID"""
+        return self.pokemon_database.get(pokemon_id)
+    
+    def get_pokemon_by_name(self, name):
+        """Get Pokemon data by name"""
+        for pokemon in self.pokemon_database.values():
+            if pokemon['name'].lower() == name.lower():
+                return pokemon
+        return None
+    
+    def get_type_color(self, pokemon_types):
+        """Get Discord embed color based on primary Pokemon type"""
+        type_colors = {
+            "Normal": 0xA8A878,
+            "Fire": 0xF08030,
+            "Water": 0x6890F0,
+            "Electric": 0xF8D030,
+            "Grass": 0x78C850,
+            "Ice": 0x98D8D8,
+            "Fighting": 0xC03028,
+            "Poison": 0xA040A0,
+            "Ground": 0xE0C068,
+            "Flying": 0xA890F0,
+            "Psychic": 0xF85888,
+            "Bug": 0xA8B820,
+            "Rock": 0xB8A038,
+            "Ghost": 0x705898,
+            "Dragon": 0x7038F8,
+            "Dark": 0x705848,
+            "Steel": 0xB8B8D0,
+            "Fairy": 0xEE99AC
+        }
+        primary_type = pokemon_types[0] if pokemon_types else "Normal"
+        return type_colors.get(primary_type, 0x000000)
+    
+    def get_random_pokemon_by_rarity(self):
+        """Get a random Pokemon based on rarity weights"""
+        rarity_weights = {
+            "Common": 0.60,
+            "Uncommon": 0.30, 
+            "Rare": 0.08,
+            "Legendary": 0.02
+        }
+        
+        # Choose rarity based on weights
+        rarities = list(rarity_weights.keys())
+        weights = list(rarity_weights.values())
+        chosen_rarity = random.choices(rarities, weights=weights)[0]
+        
+        # Get all Pokemon of chosen rarity
+        pokemon_of_rarity = [p for p in self.pokemon_database.values() if p['rarity'] == chosen_rarity]
+        
+        if not pokemon_of_rarity:
+            # Fallback to any Pokemon
+            pokemon_of_rarity = list(self.pokemon_database.values())
+        
+        return random.choice(pokemon_of_rarity) if pokemon_of_rarity else None
     
     def load_player_data(self):
         """Load player data from JSON file"""
@@ -77,7 +147,7 @@ class Pokemon(commands.Cog):
     
     def get_random_pokemon(self):
         """Get a random Pokemon based on rarity weights"""
-        return get_random_pokemon_by_rarity()
+        return self.get_random_pokemon_by_rarity()
     
     @commands.command(name='encounter', aliases=['wild', 'pokemon'])
     async def encounter_pokemon(self, ctx):
@@ -115,7 +185,7 @@ class Pokemon(commands.Cog):
         embed = discord.Embed(
             title=f"🌿 Wild Pokemon Encountered!",
             description=f"A wild **{pokemon['name']}** appeared!\n\n*{pokemon['description']}*",
-            color=get_type_color(pokemon['types'])
+            color=self.get_type_color(pokemon['types'])
         )
         
         # Add Pokemon image
@@ -200,7 +270,7 @@ class Pokemon(commands.Cog):
             embed = discord.Embed(
                 title="🎉 Pokemon Caught!",
                 description=f"Congratulations! You successfully caught **{pokemon['name']}**!",
-                color=get_type_color(pokemon['types'])
+                color=self.get_type_color(pokemon['types'])
             )
             embed.set_thumbnail(url=pokemon['sprite_url'])
             embed.add_field(name="🏷️ Type", value=" / ".join(pokemon['types']), inline=True)
@@ -365,7 +435,7 @@ class Pokemon(commands.Cog):
         embed = discord.Embed(
             title=f"📋 {found_pokemon['name']} - Details",
             description=found_pokemon.get('description', 'No description available.'),
-            color=get_type_color(found_pokemon.get('types', ['Normal']))
+            color=self.get_type_color(found_pokemon.get('types', ['Normal']))
         )
         
         # Add Pokemon image
@@ -402,6 +472,124 @@ class Pokemon(commands.Cog):
             embed.add_field(name="📊 Base Stats", value=stats_text, inline=False)
         
         embed.set_footer(text=f"Requested by {ctx.author.display_name}")
+        
+        await ctx.send(embed=embed)
+    
+    # Admin Commands
+    @commands.command(name='pokemon_admin', aliases=['padmin'])
+    async def pokemon_admin(self, ctx):
+        """Admin command to view Pokemon database statistics"""
+        if not Config.is_admin(ctx.author.id):
+            embed = discord.Embed(
+                title="❌ Access Denied",
+                description="You don't have permission to use admin commands.",
+                color=discord.Color.red()
+            )
+            await ctx.send(embed=embed)
+            return
+        
+        # Get database statistics
+        total_pokemon = len(self.pokemon_database)
+        
+        # Count by generation
+        generation_counts = {}
+        rarity_counts = {"Common": 0, "Uncommon": 0, "Rare": 0, "Legendary": 0}
+        
+        for pokemon in self.pokemon_database.values():
+            gen = pokemon['generation']
+            rarity = pokemon['rarity']
+            
+            if gen not in generation_counts:
+                generation_counts[gen] = 0
+            generation_counts[gen] += 1
+            rarity_counts[rarity] += 1
+        
+        embed = discord.Embed(
+            title="🔧 Pokemon Database Admin Panel",
+            description=f"Database Statistics and Management",
+            color=discord.Color.blue()
+        )
+        
+        embed.add_field(
+            name="📊 Total Pokemon", 
+            value=f"**{total_pokemon}** Pokemon in database\n*Target: 1025+ Pokemon*", 
+            inline=False
+        )
+        
+        # Generation breakdown
+        gen_text = ""
+        for gen in sorted(generation_counts.keys()):
+            count = generation_counts[gen]
+            gen_text += f"**Generation {gen}:** {count} Pokemon\n"
+        
+        embed.add_field(name="🌍 By Generation", value=gen_text, inline=True)
+        
+        # Rarity breakdown
+        rarity_text = ""
+        for rarity, count in rarity_counts.items():
+            percentage = (count / total_pokemon * 100) if total_pokemon > 0 else 0
+            rarity_text += f"**{rarity}:** {count} ({percentage:.1f}%)\n"
+        
+        embed.add_field(name="⭐ By Rarity", value=rarity_text, inline=True)
+        
+        # Player statistics
+        total_players = len(self.player_data)
+        total_caught = sum(len(player.get('pokemon', [])) for player in self.player_data.values())
+        
+        embed.add_field(
+            name="👥 Player Stats",
+            value=f"**Active Players:** {total_players}\n**Total Pokemon Caught:** {total_caught}",
+            inline=True
+        )
+        
+        # Database status
+        missing_gens = []
+        max_gen = max(generation_counts.keys()) if generation_counts else 0
+        for gen in range(1, 10):  # Generations 1-9
+            if gen not in generation_counts:
+                missing_gens.append(str(gen))
+        
+        status_text = f"**Current:** Gen 1-{max_gen}\n"
+        if missing_gens:
+            status_text += f"**Missing:** Gen {', '.join(missing_gens[:5])}"
+            if len(missing_gens) > 5:
+                status_text += f" +{len(missing_gens)-5} more"
+        else:
+            status_text += "**Status:** Complete (1-9)"
+        
+        embed.add_field(name="🎯 Database Status", value=status_text, inline=False)
+        
+        embed.set_footer(text=f"Admin: {ctx.author.display_name} | Use !expand_pokemon to add more Pokemon")
+        
+        await ctx.send(embed=embed)
+    
+    @commands.command(name='expand_pokemon')
+    async def expand_pokemon_database(self, ctx):
+        """Admin command to expand the Pokemon database"""
+        if not Config.is_admin(ctx.author.id):
+            embed = discord.Embed(
+                title="❌ Access Denied",
+                description="You don't have permission to use admin commands.",
+                color=discord.Color.red()
+            )
+            await ctx.send(embed=embed)
+            return
+        
+        embed = discord.Embed(
+            title="🚧 Database Expansion",
+            description="To expand the Pokemon database to all 1025+ Pokemon:\n\n" +
+                       "1. Run the database generator script\n" +
+                       "2. The bot will automatically load new Pokemon\n" +
+                       "3. Use `!pokemon_admin` to check updated stats\n\n" +
+                       "*This feature requires manual database expansion.*",
+            color=discord.Color.orange()
+        )
+        
+        embed.add_field(
+            name="📝 Current Status",
+            value=f"Database has {len(self.pokemon_database)} Pokemon\nTarget: 1025+ Pokemon from all generations",
+            inline=False
+        )
         
         await ctx.send(embed=embed)
 

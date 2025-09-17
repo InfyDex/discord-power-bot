@@ -73,27 +73,35 @@ Catch, collect, and manage your Pokemon in this engaging mini-game!
 
 **Game Features:**
 - **Starting Inventory:** All players begin with 5 normal Pokeballs
-- **Pokemon Database:** 78+ Pokemon from Generations 1-3 with complete stats and images
-- **Pokemon Rarities:** Common (45%), Uncommon (35%), Rare (15%), Legendary (5%)
+- **Pokemon Database:** 529 Pokemon from all 9 generations with complete stats and images
+- **Pokemon Rarities:** Common (47.8%), Uncommon (36.7%), Rare (6.2%), Legendary (9.3%)
 - **Encounter Cooldown:** 5 minutes between Pokemon encounters
 - **Catch Rates:** Intelligently calculated based on Pokemon base stats and rarity
 - **Collection Tracking:** Track all caught Pokemon with unique IDs and detailed stats
 - **Statistics:** Monitor encounters, catch rate, and collection progress
-- **Pokemon Images:** High-quality official artwork and sprites from GitHub repository
+- **Pokemon Images:** High-quality official artwork and sprites from PokeAPI GitHub repository
 
 **Pokemon Available:**
-- **Generation 1 (Kanto):** 43 Pokemon including starters, legendaries, and classics
-- **Generation 2 (Johto):** 19 Pokemon including new starters and legendary beasts
-- **Generation 3 (Hoenn):** 16 Pokemon including Hoenn starters and weather legendaries
-- **Rarity Distribution:** Automatically calculated based on base stat totals
-- **Starter Pokemon:** All region starters (Bulbasaur line, Charmander line, Squirtle line, Chikorita line, Cyndaquil line, Totodile line, Treecko line, Torchic line, Mudkip line)
-- **Legendary Pokemon:** Articuno, Zapdos, Moltres, Mewtwo, Mew, Raikou, Entei, Suicune, Lugia, Ho-Oh, Celebi, Latias, Latios, Kyogre, Groudon, Rayquaza, Jirachi, Deoxys
+- **Generation 1 (Kanto):** 145 Pokemon including all original Pokemon
+- **Generation 2 (Johto):** 98 Pokemon including Dark, Steel types and legendary beasts
+- **Generation 3 (Hoenn):** 135 Pokemon including abilities and weather legendaries
+- **Generation 4 (Sinnoh):** 71 Pokemon including physical/special split and Dialga/Palkia
+- **Generation 5 (Unova):** 19 Pokemon including popular favorites and Reshiram/Zekrom
+- **Generation 6 (Kalos):** 12 Pokemon including Fairy type and mega evolution Pokemon
+- **Generation 7 (Alola):** 15 Pokemon including Z-moves and Ultra Necrozma
+- **Generation 8 (Galar):** 20 Pokemon including Dynamax legendaries and Eternatus
+- **Generation 9 (Paldea):** 14 Pokemon including latest starters and Koraidon/Miraidon
+- **Complete Coverage:** All starter evolution lines, pseudo-legendaries, and major legendary Pokemon from every generation
 
 **Examples:** 
 - `!encounter` - Find a wild Pokemon
 - `!catch` - Try to catch the encountered Pokemon
 - `!pokedex` - See your collection
 - `!stats` - Check your Pokemon statistics
+
+**Admin Commands:**
+- `!pokemon_admin` / `!padmin` - View comprehensive Pokemon database statistics and management panel
+- `!expand_pokemon` - Display information about database expansion capabilities
 - `!pinfo Pikachu` - View detailed info about your Pikachu
 - `!pokemon_info #5` - View info about Pokemon #5 in your collection
 

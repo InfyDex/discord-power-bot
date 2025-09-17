@@ -20,6 +20,12 @@ class Config:
     # Bot settings
     COMMAND_PREFIX = COMMAND_PREFIX
     
+    # Admin users (Discord User IDs)
+    ADMIN_USERS = [
+        402169053013213195,  # Add your admin user ID here
+        # Add more admin user IDs as needed
+    ]
+    
     # Logging configuration
     LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO')
     LOG_FILE = os.getenv('LOG_FILE', 'bot.log')
@@ -30,6 +36,11 @@ class Config:
         if not cls.DISCORD_BOT_TOKEN:
             raise ValueError("DISCORD_BOT_TOKEN not found in environment variables!")
         return True
+    
+    @classmethod
+    def is_admin(cls, user_id):
+        """Check if a user ID is in the admin list"""
+        return int(user_id) in cls.ADMIN_USERS
     
     @classmethod
     def setup_logging(cls):
