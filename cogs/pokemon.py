@@ -10,6 +10,13 @@ import json
 import os
 from datetime import datetime, timedelta
 from .utilities import EmbedUtils
+from pokemon_database import (
+    POKEMON_DATABASE, 
+    get_random_pokemon_by_rarity, 
+    get_pokemon_by_id, 
+    get_pokemon_by_name,
+    get_type_color
+)
 
 class Pokemon(commands.Cog):
     """Cog for Pokemon game functionality"""
@@ -18,34 +25,6 @@ class Pokemon(commands.Cog):
         self.bot = bot
         self.data_file = "pokemon_data.json"
         self.player_data = self.load_player_data()
-        
-        # Pokemon database - basic starter Pokemon for now
-        self.pokemon_database = {
-            "common": [
-                {"name": "Pidgey", "type": "Normal/Flying", "rarity": "Common", "catch_rate": 0.8},
-                {"name": "Rattata", "type": "Normal", "rarity": "Common", "catch_rate": 0.8},
-                {"name": "Caterpie", "type": "Bug", "rarity": "Common", "catch_rate": 0.9},
-                {"name": "Weedle", "type": "Bug/Poison", "rarity": "Common", "catch_rate": 0.9},
-                {"name": "Magikarp", "type": "Water", "rarity": "Common", "catch_rate": 0.9}
-            ],
-            "uncommon": [
-                {"name": "Pikachu", "type": "Electric", "rarity": "Uncommon", "catch_rate": 0.6},
-                {"name": "Bulbasaur", "type": "Grass/Poison", "rarity": "Uncommon", "catch_rate": 0.5},
-                {"name": "Charmander", "type": "Fire", "rarity": "Uncommon", "catch_rate": 0.5},
-                {"name": "Squirtle", "type": "Water", "rarity": "Uncommon", "catch_rate": 0.5},
-                {"name": "Eevee", "type": "Normal", "rarity": "Uncommon", "catch_rate": 0.4}
-            ],
-            "rare": [
-                {"name": "Dratini", "type": "Dragon", "rarity": "Rare", "catch_rate": 0.3},
-                {"name": "Lapras", "type": "Water/Ice", "rarity": "Rare", "catch_rate": 0.2},
-                {"name": "Snorlax", "type": "Normal", "rarity": "Rare", "catch_rate": 0.25}
-            ],
-            "legendary": [
-                {"name": "Articuno", "type": "Ice/Flying", "rarity": "Legendary", "catch_rate": 0.1},
-                {"name": "Zapdos", "type": "Electric/Flying", "rarity": "Legendary", "catch_rate": 0.1},
-                {"name": "Moltres", "type": "Fire/Flying", "rarity": "Legendary", "catch_rate": 0.1}
-            ]
-        }
     
     def load_player_data(self):
         """Load player data from JSON file"""
@@ -98,24 +77,7 @@ class Pokemon(commands.Cog):
     
     def get_random_pokemon(self):
         """Get a random Pokemon based on rarity weights"""
-        # Rarity weights: Common 60%, Uncommon 25%, Rare 10%, Legendary 5%
-        rarity_weights = {
-            "common": 0.60,
-            "uncommon": 0.25,
-            "rare": 0.10,
-            "legendary": 0.05
-        }
-        
-        rand = random.random()
-        cumulative = 0
-        
-        for rarity, weight in rarity_weights.items():
-            cumulative += weight
-            if rand <= cumulative:
-                return random.choice(self.pokemon_database[rarity])
-        
-        # Fallback to common
-        return random.choice(self.pokemon_database["common"])
+        return get_random_pokemon_by_rarity()
     
     @commands.command(name='encounter', aliases=['wild', 'pokemon'])
     async def encounter_pokemon(self, ctx):
@@ -145,30 +107,40 @@ class Pokemon(commands.Cog):
         self.player_data[user_id]["last_encounter"] = datetime.now().isoformat()
         self.player_data[user_id]["stats"]["total_encounters"] += 1
         
-        # Store current encounter for catching
+        # Store current encounter for catching (store the full Pokemon data)
         self.player_data[user_id]["current_encounter"] = pokemon
         self.save_player_data()
         
-        # Create encounter embed
-        rarity_colors = {
-            "Common": discord.Color.light_grey(),
-            "Uncommon": discord.Color.green(),
-            "Rare": discord.Color.blue(),
-            "Legendary": discord.Color.gold()
-        }
-        
+        # Create encounter embed with Pokemon image
         embed = discord.Embed(
             title=f"🌿 Wild Pokemon Encountered!",
-            description=f"A wild **{pokemon['name']}** appeared!",
-            color=rarity_colors.get(pokemon['rarity'], discord.Color.blue())
+            description=f"A wild **{pokemon['name']}** appeared!\n\n*{pokemon['description']}*",
+            color=get_type_color(pokemon['types'])
         )
-        embed.add_field(name="Type", value=pokemon['type'], inline=True)
-        embed.add_field(name="Rarity", value=pokemon['rarity'], inline=True)
+        
+        # Add Pokemon image
+        embed.set_image(url=pokemon['image_url'])
+        embed.set_thumbnail(url=pokemon['sprite_url'])
+        
+        # Format types
+        type_text = " / ".join(pokemon['types'])
+        embed.add_field(name="🏷️ Type", value=type_text, inline=True)
+        embed.add_field(name="⭐ Rarity", value=pokemon['rarity'], inline=True)
+        embed.add_field(name="🎲 Catch Rate", value=f"{int(pokemon['catch_rate'] * 100)}%", inline=True)
+        
+        # Add stats preview
+        stats = pokemon['stats']
+        stats_text = f"**HP:** {stats['hp']} | **ATK:** {stats['attack']} | **DEF:** {stats['defense']}\n**SP.ATK:** {stats['sp_attack']} | **SP.DEF:** {stats['sp_defense']} | **SPD:** {stats['speed']}"
+        embed.add_field(name="📊 Base Stats", value=stats_text, inline=False)
+        
         embed.add_field(name="🎯 Actions", value="Use `!catch` to attempt to catch this Pokemon!", inline=False)
         
         # Add pokeball count
         pokeballs = self.player_data[user_id]["pokeballs"]["normal"]
         embed.add_field(name="⚾ Your Pokeballs", value=f"{pokeballs} Normal Pokeballs", inline=True)
+        
+        # Add generation info
+        embed.set_footer(text=f"Generation {pokemon['generation']} Pokemon | Pokedex Entry")
         
         await ctx.send(embed=embed)
     
@@ -211,10 +183,15 @@ class Pokemon(commands.Cog):
             # Add Pokemon to collection
             caught_pokemon = {
                 "name": pokemon['name'],
-                "type": pokemon['type'],
+                "types": pokemon['types'],
                 "rarity": pokemon['rarity'],
                 "caught_date": datetime.now().isoformat(),
-                "id": len(self.player_data[user_id]["pokemon"]) + 1
+                "id": len(self.player_data[user_id]["pokemon"]) + 1,
+                "stats": pokemon['stats'],
+                "generation": pokemon['generation'],
+                "description": pokemon['description'],
+                "image_url": pokemon['image_url'],
+                "sprite_url": pokemon['sprite_url']
             }
             
             self.player_data[user_id]["pokemon"].append(caught_pokemon)
@@ -223,17 +200,19 @@ class Pokemon(commands.Cog):
             embed = discord.Embed(
                 title="🎉 Pokemon Caught!",
                 description=f"Congratulations! You successfully caught **{pokemon['name']}**!",
-                color=discord.Color.green()
+                color=get_type_color(pokemon['types'])
             )
-            embed.add_field(name="Type", value=pokemon['type'], inline=True)
-            embed.add_field(name="Rarity", value=pokemon['rarity'], inline=True)
-            embed.add_field(name="Pokemon ID", value=f"#{caught_pokemon['id']}", inline=True)
+            embed.set_thumbnail(url=pokemon['sprite_url'])
+            embed.add_field(name="🏷️ Type", value=" / ".join(pokemon['types']), inline=True)
+            embed.add_field(name="⭐ Rarity", value=pokemon['rarity'], inline=True)
+            embed.add_field(name="🆔 Pokemon ID", value=f"#{caught_pokemon['id']}", inline=True)
         else:
             embed = discord.Embed(
                 title="💨 Pokemon Escaped!",
                 description=f"Oh no! **{pokemon['name']}** broke free and escaped!",
                 color=discord.Color.red()
             )
+            embed.set_thumbnail(url=pokemon['sprite_url'])
             embed.add_field(name="Better luck next time!", value="Try encountering another Pokemon!", inline=False)
         
         # Add remaining pokeball count
@@ -288,12 +267,29 @@ class Pokemon(commands.Cog):
         
         for rarity in ["Legendary", "Rare", "Uncommon", "Common"]:
             if rarity in by_rarity:
-                pokemon_names = [f"#{p['id']} {p['name']}" for p in by_rarity[rarity]]
+                pokemon_names = []
+                for p in by_rarity[rarity]:
+                    type_text = " / ".join(p.get('types', [p.get('type', 'Unknown')]))
+                    pokemon_names.append(f"#{p['id']} {p['name']} ({type_text})")
+                
+                display_names = pokemon_names[:8]  # Show max 8 per rarity
+                if len(pokemon_names) > 8:
+                    display_names.append(f"... and {len(pokemon_names) - 8} more")
+                
                 embed.add_field(
                     name=f"{rarity_emojis.get(rarity, '⚪')} {rarity} ({len(by_rarity[rarity])})",
-                    value="\n".join(pokemon_names) if len(pokemon_names) <= 10 else "\n".join(pokemon_names[:10]) + f"\n... and {len(pokemon_names) - 10} more",
+                    value="\n".join(display_names),
                     inline=True
                 )
+        
+        # Add collection stats
+        total_stats = sum(p.get('stats', {}).get('total', 0) for p in pokemon_list)
+        avg_stats = total_stats // len(pokemon_list) if pokemon_list else 0
+        embed.add_field(
+            name="📊 Collection Stats", 
+            value=f"**Total Base Stats:** {total_stats}\n**Average Base Stats:** {avg_stats}",
+            inline=False
+        )
         
         await ctx.send(embed=embed)
     
@@ -322,6 +318,90 @@ class Pokemon(commands.Cog):
         
         join_date = datetime.fromisoformat(stats["join_date"]).strftime("%B %d, %Y")
         embed.add_field(name="📅 Trainer Since", value=join_date, inline=True)
+        
+        await ctx.send(embed=embed)
+    
+    @commands.command(name='pokemon_info', aliases=['pinfo', 'pokemon_detail'])
+    async def pokemon_info(self, ctx, *, pokemon_identifier):
+        """View detailed information about a specific Pokemon in your collection"""
+        user_id = str(ctx.author.id)
+        self.initialize_player(user_id)
+        
+        pokemon_list = self.player_data[user_id]["pokemon"]
+        
+        if not pokemon_list:
+            embed = discord.Embed(
+                title="❌ No Pokemon Found",
+                description="You haven't caught any Pokemon yet! Use `!encounter` to find wild Pokemon.",
+                color=discord.Color.red()
+            )
+            await ctx.send(embed=embed)
+            return
+        
+        # Try to find Pokemon by ID or name
+        found_pokemon = None
+        
+        # Check if identifier is a number (Pokemon ID)
+        if pokemon_identifier.startswith('#'):
+            pokemon_identifier = pokemon_identifier[1:]
+        
+        if pokemon_identifier.isdigit():
+            pokemon_id = int(pokemon_identifier)
+            found_pokemon = next((p for p in pokemon_list if p['id'] == pokemon_id), None)
+        else:
+            # Search by name
+            found_pokemon = next((p for p in pokemon_list if p['name'].lower() == pokemon_identifier.lower()), None)
+        
+        if not found_pokemon:
+            embed = discord.Embed(
+                title="❌ Pokemon Not Found",
+                description=f"Could not find Pokemon '{pokemon_identifier}' in your collection.\nUse `!collection` to see all your Pokemon.",
+                color=discord.Color.red()
+            )
+            await ctx.send(embed=embed)
+            return
+        
+        # Create detailed Pokemon info embed
+        embed = discord.Embed(
+            title=f"📋 {found_pokemon['name']} - Details",
+            description=found_pokemon.get('description', 'No description available.'),
+            color=get_type_color(found_pokemon.get('types', ['Normal']))
+        )
+        
+        # Add Pokemon image
+        if 'image_url' in found_pokemon:
+            embed.set_image(url=found_pokemon['image_url'])
+        if 'sprite_url' in found_pokemon:
+            embed.set_thumbnail(url=found_pokemon['sprite_url'])
+        
+        # Basic info
+        types = found_pokemon.get('types', [found_pokemon.get('type', 'Unknown')])
+        if isinstance(types, str):
+            types = [types]
+        
+        embed.add_field(name="🆔 Collection ID", value=f"#{found_pokemon['id']}", inline=True)
+        embed.add_field(name="🏷️ Type", value=" / ".join(types), inline=True)
+        embed.add_field(name="⭐ Rarity", value=found_pokemon['rarity'], inline=True)
+        
+        # Caught date
+        caught_date = datetime.fromisoformat(found_pokemon['caught_date']).strftime("%B %d, %Y at %I:%M %p")
+        embed.add_field(name="📅 Caught On", value=caught_date, inline=True)
+        
+        # Generation info
+        generation = found_pokemon.get('generation', 'Unknown')
+        embed.add_field(name="🌍 Generation", value=f"Gen {generation}", inline=True)
+        embed.add_field(name="📊 Base Stat Total", value=found_pokemon.get('stats', {}).get('total', 'Unknown'), inline=True)
+        
+        # Detailed stats
+        if 'stats' in found_pokemon:
+            stats = found_pokemon['stats']
+            stats_text = (
+                f"**HP:** {stats.get('hp', 0)} | **Attack:** {stats.get('attack', 0)} | **Defense:** {stats.get('defense', 0)}\n"
+                f"**Sp. Attack:** {stats.get('sp_attack', 0)} | **Sp. Defense:** {stats.get('sp_defense', 0)} | **Speed:** {stats.get('speed', 0)}"
+            )
+            embed.add_field(name="📊 Base Stats", value=stats_text, inline=False)
+        
+        embed.set_footer(text=f"Requested by {ctx.author.display_name}")
         
         await ctx.send(embed=embed)
 

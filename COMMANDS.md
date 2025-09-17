@@ -67,26 +67,33 @@ Catch, collect, and manage your Pokemon in this engaging mini-game!
 - `!collection` - View your Pokemon collection (alias)
 - `!pokemon_stats` - View your Pokemon game statistics
 - `!stats` - View your Pokemon game statistics (alias)
+- `!pokemon_info <name/id>` - View detailed info about a specific Pokemon
+- `!pinfo <name/id>` - View detailed info about a specific Pokemon (alias)
+- `!pokemon_detail <name/id>` - View detailed info about a specific Pokemon (alias)
 
 **Game Features:**
 - **Starting Inventory:** All players begin with 5 normal Pokeballs
-- **Pokemon Rarities:** Common (60%), Uncommon (25%), Rare (10%), Legendary (5%)
+- **Pokemon Database:** 35+ Pokemon from Generation 1 with complete stats and images
+- **Pokemon Rarities:** Common (50%), Uncommon (30%), Rare (15%), Legendary (5%)
 - **Encounter Cooldown:** 5 minutes between Pokemon encounters
-- **Catch Rates:** Vary by Pokemon rarity (Common: 80-90%, Legendary: 10%)
-- **Collection Tracking:** Track all caught Pokemon with unique IDs
+- **Catch Rates:** Vary by Pokemon rarity and individual species
+- **Collection Tracking:** Track all caught Pokemon with unique IDs and detailed stats
 - **Statistics:** Monitor encounters, catch rate, and collection progress
+- **Pokemon Images:** High-quality artwork and sprites displayed during encounters
 
 **Pokemon Types Available:**
-- **Common:** Pidgey, Rattata, Caterpie, Weedle, Magikarp
-- **Uncommon:** Pikachu, Bulbasaur, Charmander, Squirtle, Eevee
-- **Rare:** Dratini, Lapras, Snorlax
-- **Legendary:** Articuno, Zapdos, Moltres
+- **Common:** Pidgey, Rattata, Caterpie, Weedle, Magikarp, Metapod, Kakuna
+- **Uncommon:** Pikachu, Bulbasaur, Charmander, Squirtle, Eevee, Butterfree, Beedrill, Pidgeotto, Raticate
+- **Rare:** Ivysaur, Charmeleon, Wartortle, Pidgeot, Raichu, Lapras, Snorlax, Dratini, Dragonair
+- **Legendary:** Venusaur, Charizard, Blastoise, Gyarados, Dragonite, Articuno, Zapdos, Moltres, Mewtwo, Mew
 
 **Examples:** 
 - `!encounter` - Find a wild Pokemon
 - `!catch` - Try to catch the encountered Pokemon
 - `!pokedex` - See your collection
 - `!stats` - Check your Pokemon statistics
+- `!pinfo Pikachu` - View detailed info about your Pikachu
+- `!pokemon_info #5` - View info about Pokemon #5 in your collection
 
 ---
 
