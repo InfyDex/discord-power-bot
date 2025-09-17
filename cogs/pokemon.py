@@ -120,7 +120,7 @@ class Pokemon(commands.Cog):
         if user_id not in self.player_data:
             self.player_data[user_id] = {
                 "pokemon": [],
-                "pokeballs": {"normal": 5},
+                "pokeballs": {"normal": 5, "master": 0},
                 "last_encounter": None,
                 "stats": {
                     "total_caught": 0,
@@ -184,7 +184,7 @@ class Pokemon(commands.Cog):
         # Create encounter embed with Pokemon image
         embed = discord.Embed(
             title=f"🌿 Wild Pokemon Encountered!",
-            description=f"A wild **{pokemon['name']}** appeared!\n\n*{pokemon['description']}*",
+            description=f"A wild **{pokemon['name']}** appeared!\n\n*{pokemon['description']}*\n\n🎯 Encountered by {ctx.author.mention}",
             color=self.get_type_color(pokemon['types'])
         )
         
@@ -203,11 +203,15 @@ class Pokemon(commands.Cog):
         stats_text = f"**HP:** {stats['hp']} | **ATK:** {stats['attack']} | **DEF:** {stats['defense']}\n**SP.ATK:** {stats['sp_attack']} | **SP.DEF:** {stats['sp_defense']} | **SPD:** {stats['speed']}"
         embed.add_field(name="📊 Base Stats", value=stats_text, inline=False)
         
-        embed.add_field(name="🎯 Actions", value="Use `!catch` to attempt to catch this Pokemon!", inline=False)
+        embed.add_field(name="🎯 Actions", value="Use `!catch normal` or `!catch master` to attempt to catch this Pokemon!", inline=False)
         
         # Add pokeball count
-        pokeballs = self.player_data[user_id]["pokeballs"]["normal"]
-        embed.add_field(name="⚾ Your Pokeballs", value=f"{pokeballs} Normal Pokeballs", inline=True)
+        normal_balls = self.player_data[user_id]["pokeballs"]["normal"]
+        master_balls = self.player_data[user_id]["pokeballs"].get("master", 0)
+        ball_text = f"{normal_balls} Normal Pokeballs"
+        if master_balls > 0:
+            ball_text += f" | {master_balls} Master Balls"
+        embed.add_field(name="⚾ Your Pokeballs", value=ball_text, inline=True)
         
         # Add generation info
         embed.set_footer(text=f"Generation {pokemon['generation']} Pokemon | Pokedex Entry")
@@ -215,7 +219,7 @@ class Pokemon(commands.Cog):
         await ctx.send(embed=embed)
     
     @commands.command(name='catch')
-    async def catch_pokemon(self, ctx):
+    async def catch_pokemon(self, ctx, ball_type: str = "normal"):
         """Attempt to catch the currently encountered Pokemon"""
         user_id = str(ctx.author.id)
         self.initialize_player(user_id)
@@ -231,23 +235,47 @@ class Pokemon(commands.Cog):
             await ctx.send(embed=embed)
             return
         
-        # Check if player has pokeballs
-        if self.player_data[user_id]["pokeballs"]["normal"] <= 0:
+        # Validate ball type
+        valid_ball_types = ["normal", "master"]
+        if ball_type.lower() not in valid_ball_types:
             embed = discord.Embed(
-                title="❌ No Pokeballs",
-                description="You don't have any Pokeballs left! You'll need to get more to catch Pokemon.",
+                title="❌ Invalid Ball Type",
+                description=f"Valid ball types are: `normal`, `master`\nUsage: `!catch normal` or `!catch master`",
                 color=discord.Color.red()
             )
             await ctx.send(embed=embed)
             return
         
-        # Use a pokeball
-        self.player_data[user_id]["pokeballs"]["normal"] -= 1
+        ball_type = ball_type.lower()
+        
+        # Check if player has the specified pokeball type
+        if self.player_data[user_id]["pokeballs"].get(ball_type, 0) <= 0:
+            ball_name = "Normal Pokeballs" if ball_type == "normal" else "Master Balls"
+            embed = discord.Embed(
+                title="❌ No Pokeballs",
+                description=f"You don't have any {ball_name} left!",
+                color=discord.Color.red()
+            )
+            await ctx.send(embed=embed)
+            return
+        
+        # Use the specified pokeball
+        self.player_data[user_id]["pokeballs"][ball_type] -= 1
         
         # Calculate catch success
         pokemon = current_encounter
         catch_roll = random.random()
-        caught = catch_roll <= pokemon['catch_rate']
+        
+        # Master Ball has 100% catch rate, normal ball uses Pokemon's catch rate
+        if ball_type == "master":
+            caught = True
+            catch_rate_used = 1.0
+        else:
+            caught = catch_roll <= pokemon['catch_rate']
+            catch_rate_used = pokemon['catch_rate']
+        
+        ball_emoji = "⚾" if ball_type == "normal" else "🌟"
+        ball_name = "Normal Pokeball" if ball_type == "normal" else "Master Ball"
         
         if caught:
             # Add Pokemon to collection
@@ -261,7 +289,8 @@ class Pokemon(commands.Cog):
                 "generation": pokemon['generation'],
                 "description": pokemon['description'],
                 "image_url": pokemon['image_url'],
-                "sprite_url": pokemon['sprite_url']
+                "sprite_url": pokemon['sprite_url'],
+                "caught_with": ball_type
             }
             
             self.player_data[user_id]["pokemon"].append(caught_pokemon)
@@ -269,25 +298,30 @@ class Pokemon(commands.Cog):
             
             embed = discord.Embed(
                 title="🎉 Pokemon Caught!",
-                description=f"Congratulations! You successfully caught **{pokemon['name']}**!",
+                description=f"Congratulations {ctx.author.mention}! You successfully caught **{pokemon['name']}** with a {ball_name}!",
                 color=self.get_type_color(pokemon['types'])
             )
             embed.set_thumbnail(url=pokemon['sprite_url'])
             embed.add_field(name="🏷️ Type", value=" / ".join(pokemon['types']), inline=True)
             embed.add_field(name="⭐ Rarity", value=pokemon['rarity'], inline=True)
             embed.add_field(name="🆔 Pokemon ID", value=f"#{caught_pokemon['id']}", inline=True)
+            embed.add_field(name=f"{ball_emoji} Caught With", value=ball_name, inline=True)
         else:
             embed = discord.Embed(
                 title="💨 Pokemon Escaped!",
-                description=f"Oh no! **{pokemon['name']}** broke free and escaped!",
+                description=f"Oh no {ctx.author.mention}! **{pokemon['name']}** broke free from the {ball_name} and escaped!",
                 color=discord.Color.red()
             )
             embed.set_thumbnail(url=pokemon['sprite_url'])
             embed.add_field(name="Better luck next time!", value="Try encountering another Pokemon!", inline=False)
         
         # Add remaining pokeball count
-        remaining_balls = self.player_data[user_id]["pokeballs"]["normal"]
-        embed.add_field(name="⚾ Pokeballs Remaining", value=f"{remaining_balls} Normal Pokeballs", inline=True)
+        remaining_normal = self.player_data[user_id]["pokeballs"]["normal"]
+        remaining_master = self.player_data[user_id]["pokeballs"].get("master", 0)
+        ball_text = f"⚾ {remaining_normal} Normal"
+        if remaining_master > 0:
+            ball_text += f" | 🌟 {remaining_master} Master"
+        embed.add_field(name="⚾ Pokeballs Remaining", value=ball_text, inline=True)
         
         # Clear current encounter
         self.player_data[user_id]["current_encounter"] = None
@@ -296,28 +330,50 @@ class Pokemon(commands.Cog):
         await ctx.send(embed=embed)
     
     @commands.command(name='pokemon_list', aliases=['pokedex', 'collection'])
-    async def pokemon_collection(self, ctx):
-        """View your Pokemon collection"""
-        user_id = str(ctx.author.id)
+    async def pokemon_collection(self, ctx, user: discord.Member = None):
+        """View your Pokemon collection or another user's collection"""
+        # If no user mentioned, show the author's collection
+        if user is None:
+            user = ctx.author
+            user_id = str(ctx.author.id)
+            is_own_collection = True
+        else:
+            user_id = str(user.id)
+            is_own_collection = (user.id == ctx.author.id)
+        
         self.initialize_player(user_id)
         
         pokemon_list = self.player_data[user_id]["pokemon"]
         
         if not pokemon_list:
-            embed = discord.Embed(
-                title="📖 Your Pokemon Collection",
-                description="You haven't caught any Pokemon yet! Use `!encounter` to find wild Pokemon.",
-                color=discord.Color.blue()
-            )
+            if is_own_collection:
+                embed = discord.Embed(
+                    title="📖 Your Pokemon Collection",
+                    description="You haven't caught any Pokemon yet! Use `!encounter` to find wild Pokemon.",
+                    color=discord.Color.blue()
+                )
+            else:
+                embed = discord.Embed(
+                    title=f"📖 {user.display_name}'s Pokemon Collection",
+                    description=f"{user.display_name} hasn't caught any Pokemon yet!",
+                    color=discord.Color.blue()
+                )
             await ctx.send(embed=embed)
             return
         
         # Create collection embed
-        embed = discord.Embed(
-            title=f"📖 {ctx.author.display_name}'s Pokemon Collection",
-            description=f"You have caught {len(pokemon_list)} Pokemon!",
-            color=discord.Color.blue()
-        )
+        if is_own_collection:
+            embed = discord.Embed(
+                title=f"📖 Your Pokemon Collection",
+                description=f"You have caught {len(pokemon_list)} Pokemon!",
+                color=discord.Color.blue()
+            )
+        else:
+            embed = discord.Embed(
+                title=f"📖 {user.display_name}'s Pokemon Collection",
+                description=f"{user.display_name} has caught {len(pokemon_list)} Pokemon!",
+                color=discord.Color.blue()
+            )
         
         # Group Pokemon by rarity
         by_rarity = {}
@@ -360,6 +416,46 @@ class Pokemon(commands.Cog):
             value=f"**Total Base Stats:** {total_stats}\n**Average Base Stats:** {avg_stats}",
             inline=False
         )
+        
+        # Add image of most recent caught Pokemon or highest rarity Pokemon
+        if pokemon_list:
+            # Try to find the most recent legendary/rare Pokemon, or just the most recent
+            display_pokemon = None
+            
+            # First try to find a legendary
+            legendaries = [p for p in pokemon_list if p.get('rarity') == 'Legendary']
+            if legendaries:
+                # Get the most recent legendary
+                display_pokemon = max(legendaries, key=lambda x: x.get('caught_date', ''))
+            else:
+                # Find highest rarity Pokemon
+                for rarity in ['Rare', 'Uncommon', 'Common']:
+                    rarity_pokemon = [p for p in pokemon_list if p.get('rarity') == rarity]
+                    if rarity_pokemon:
+                        display_pokemon = max(rarity_pokemon, key=lambda x: x.get('caught_date', ''))
+                        break
+            
+            # If still no Pokemon found, just get the most recent
+            if not display_pokemon:
+                display_pokemon = max(pokemon_list, key=lambda x: x.get('caught_date', ''))
+            
+            # Set the image and thumbnail
+            if display_pokemon and 'image_url' in display_pokemon:
+                embed.set_image(url=display_pokemon['image_url'])
+                
+            # Set a small thumbnail of the user's avatar
+            embed.set_thumbnail(url=user.display_avatar.url)
+                
+            # Add footer with featured Pokemon info
+            if display_pokemon:
+                embed.set_footer(
+                    text=f"🌟 Featured: {display_pokemon['name']} ({display_pokemon.get('rarity', 'Unknown')}) | Requested by {ctx.author.display_name}"
+                )
+            else:
+                embed.set_footer(text=f"Requested by {ctx.author.display_name}")
+        else:
+            embed.set_thumbnail(url=user.display_avatar.url)
+            embed.set_footer(text=f"Requested by {ctx.author.display_name}")
         
         await ctx.send(embed=embed)
     
@@ -560,6 +656,79 @@ class Pokemon(commands.Cog):
         embed.add_field(name="🎯 Database Status", value=status_text, inline=False)
         
         embed.set_footer(text=f"Admin: {ctx.author.display_name} | Complete Pokemon Database - All 1025 Pokemon Available")
+        
+        await ctx.send(embed=embed)
+    
+    @commands.command(name='give_pokeball', aliases=['give_ball', 'pokeball_admin'])
+    async def give_pokeball(self, ctx, user: discord.Member, ball_type: str, count: int):
+        """Admin command to give pokeballs to a user"""
+        if not Config.is_admin(ctx.author.id):
+            embed = discord.Embed(
+                title="❌ Access Denied",
+                description="You don't have permission to use admin commands.",
+                color=discord.Color.red()
+            )
+            await ctx.send(embed=embed)
+            return
+        
+        # Validate ball type
+        valid_ball_types = ["normal", "master"]
+        if ball_type.lower() not in valid_ball_types:
+            embed = discord.Embed(
+                title="❌ Invalid Ball Type",
+                description=f"Valid ball types are: {', '.join(valid_ball_types)}",
+                color=discord.Color.red()
+            )
+            await ctx.send(embed=embed)
+            return
+        
+        # Validate count
+        if count <= 0:
+            embed = discord.Embed(
+                title="❌ Invalid Count",
+                description="Count must be a positive number.",
+                color=discord.Color.red()
+            )
+            await ctx.send(embed=embed)
+            return
+        
+        # Initialize player if needed
+        user_id = str(user.id)
+        self.initialize_player(user_id)
+        
+        # Ensure the ball type exists in the player's data
+        if ball_type.lower() not in self.player_data[user_id]["pokeballs"]:
+            self.player_data[user_id]["pokeballs"][ball_type.lower()] = 0
+        
+        # Add pokeballs
+        self.player_data[user_id]["pokeballs"][ball_type.lower()] += count
+        self.save_player_data()
+        
+        # Create confirmation embed
+        ball_emoji = "⚾" if ball_type.lower() == "normal" else "🌟"
+        embed = discord.Embed(
+            title="✅ Pokeballs Given",
+            description=f"Successfully gave {count} {ball_type.title()} Pokeball(s) to {user.mention}!",
+            color=discord.Color.green()
+        )
+        
+        # Show user's current pokeball count
+        current_normal = self.player_data[user_id]["pokeballs"].get("normal", 0)
+        current_master = self.player_data[user_id]["pokeballs"].get("master", 0)
+        
+        embed.add_field(
+            name=f"{ball_emoji} {user.display_name}'s Pokeballs",
+            value=f"**Normal:** {current_normal}\n**Master:** {current_master}",
+            inline=True
+        )
+        
+        embed.add_field(
+            name="📋 Action Details",
+            value=f"**Given:** {count} {ball_type.title()} Pokeball(s)\n**To:** {user.display_name}\n**By:** {ctx.author.display_name}",
+            inline=True
+        )
+        
+        embed.set_footer(text=f"Admin Action | Executed by {ctx.author.display_name}")
         
         await ctx.send(embed=embed)
 
