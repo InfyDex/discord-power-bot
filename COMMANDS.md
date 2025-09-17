@@ -73,19 +73,21 @@ Catch, collect, and manage your Pokemon in this engaging mini-game!
 
 **Game Features:**
 - **Starting Inventory:** All players begin with 5 normal Pokeballs
-- **Pokemon Database:** 35+ Pokemon from Generation 1 with complete stats and images
-- **Pokemon Rarities:** Common (50%), Uncommon (30%), Rare (15%), Legendary (5%)
+- **Pokemon Database:** 78+ Pokemon from Generations 1-3 with complete stats and images
+- **Pokemon Rarities:** Common (45%), Uncommon (35%), Rare (15%), Legendary (5%)
 - **Encounter Cooldown:** 5 minutes between Pokemon encounters
-- **Catch Rates:** Vary by Pokemon rarity and individual species
+- **Catch Rates:** Intelligently calculated based on Pokemon base stats and rarity
 - **Collection Tracking:** Track all caught Pokemon with unique IDs and detailed stats
 - **Statistics:** Monitor encounters, catch rate, and collection progress
-- **Pokemon Images:** High-quality artwork and sprites displayed during encounters
+- **Pokemon Images:** High-quality official artwork and sprites from GitHub repository
 
-**Pokemon Types Available:**
-- **Common:** Pidgey, Rattata, Caterpie, Weedle, Magikarp, Metapod, Kakuna
-- **Uncommon:** Pikachu, Bulbasaur, Charmander, Squirtle, Eevee, Butterfree, Beedrill, Pidgeotto, Raticate
-- **Rare:** Ivysaur, Charmeleon, Wartortle, Pidgeot, Raichu, Lapras, Snorlax, Dratini, Dragonair
-- **Legendary:** Venusaur, Charizard, Blastoise, Gyarados, Dragonite, Articuno, Zapdos, Moltres, Mewtwo, Mew
+**Pokemon Available:**
+- **Generation 1 (Kanto):** 43 Pokemon including starters, legendaries, and classics
+- **Generation 2 (Johto):** 19 Pokemon including new starters and legendary beasts
+- **Generation 3 (Hoenn):** 16 Pokemon including Hoenn starters and weather legendaries
+- **Rarity Distribution:** Automatically calculated based on base stat totals
+- **Starter Pokemon:** All region starters (Bulbasaur line, Charmander line, Squirtle line, Chikorita line, Cyndaquil line, Totodile line, Treecko line, Torchic line, Mudkip line)
+- **Legendary Pokemon:** Articuno, Zapdos, Moltres, Mewtwo, Mew, Raikou, Entei, Suicune, Lugia, Ho-Oh, Celebi, Latias, Latios, Kyogre, Groudon, Rayquaza, Jirachi, Deoxys
 
 **Examples:** 
 - `!encounter` - Find a wild Pokemon
