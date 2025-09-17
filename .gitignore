@@ -10,6 +10,9 @@ __pycache__/
 *.log
 bot.log
 
+# Game data files
+pokemon_data.json
+
 # IDE files
 .vscode/
 .idea/

@@ -54,6 +54,42 @@ Roll dice using standard tabletop gaming notation.
 
 ---
 
+### Pokemon Game
+Catch, collect, and manage your Pokemon in this engaging mini-game!
+
+**Prefix Commands:**
+- `!encounter` - Encounter a wild Pokemon (5-minute cooldown)
+- `!wild` - Encounter a wild Pokemon (alias)
+- `!pokemon` - Encounter a wild Pokemon (alias)
+- `!catch` - Attempt to catch the currently encountered Pokemon
+- `!pokemon_list` - View your Pokemon collection
+- `!pokedex` - View your Pokemon collection (alias)
+- `!collection` - View your Pokemon collection (alias)
+- `!pokemon_stats` - View your Pokemon game statistics
+- `!stats` - View your Pokemon game statistics (alias)
+
+**Game Features:**
+- **Starting Inventory:** All players begin with 5 normal Pokeballs
+- **Pokemon Rarities:** Common (60%), Uncommon (25%), Rare (10%), Legendary (5%)
+- **Encounter Cooldown:** 5 minutes between Pokemon encounters
+- **Catch Rates:** Vary by Pokemon rarity (Common: 80-90%, Legendary: 10%)
+- **Collection Tracking:** Track all caught Pokemon with unique IDs
+- **Statistics:** Monitor encounters, catch rate, and collection progress
+
+**Pokemon Types Available:**
+- **Common:** Pidgey, Rattata, Caterpie, Weedle, Magikarp
+- **Uncommon:** Pikachu, Bulbasaur, Charmander, Squirtle, Eevee
+- **Rare:** Dratini, Lapras, Snorlax
+- **Legendary:** Articuno, Zapdos, Moltres
+
+**Examples:** 
+- `!encounter` - Find a wild Pokemon
+- `!catch` - Try to catch the encountered Pokemon
+- `!pokedex` - See your collection
+- `!stats` - Check your Pokemon statistics
+
+---
+
 ## 👋 Greeting Commands
 
 ### Random Greeting
@@ -181,6 +217,7 @@ This document will be updated whenever new commands are added to the bot. Check 
 | Category | Slash Commands | Prefix Commands |
 |----------|---------------|-----------------|
 | **Games** | `/flip`, `/roll` | `!flip`, `!coin`, `!roll`, `!dice`, `!r` |
+| **Pokemon** | - | `!encounter`, `!catch`, `!pokedex`, `!stats` |
 | **Greetings** | - | `!greet`, `!greetings` |
 | **Utilities** | - | `!info`, `!ping`, `!uptime` |
 | **Admin** | - | `!reload` |
