@@ -140,31 +140,33 @@ class Pokemon(commands.Cog):
             embed.add_field(name="🌍 Generation", value=f"**Gen {pokemon['generation']}**", inline=True)
             embed.add_field(name="💪 Total Stats", value=f"**{pokemon['stats'].get('total', sum(pokemon['stats'].values()))}**", inline=True)
             
-            # Add stats preview
+            # Enhanced stats preview with analysis
             stats = pokemon['stats']
-            stats_text = f"💛 **HP:** {stats['hp']} ⚔️ **ATK:** {stats['attack']} 🛡️ **DEF:** {stats['defense']}\n✨ **SP.ATK:** {stats['sp_attack']} 🔰 **SP.DEF:** {stats['sp_defense']} 💨 **SPD:** {stats['speed']}"
-            embed.add_field(name="📊 Battle Stats", value=stats_text, inline=False)
+            stats_text = f"💛 **HP:** {stats['hp']} ⚔️ **ATK:** {stats['attack']} 🛡️ **DEF:** {stats['defense']}\n✨ **SP.ATK:** {stats['sp_attack']} 🔰 **SP.DEF:** {stats['sp_defense']} 💨 **SPD:** {stats['speed']}\n\n📈 **Combat Analysis:** Physical Power: {stats['attack'] + stats['defense']}/200 | Special Power: {stats['sp_attack'] + stats['sp_defense']}/200 | Agility: {stats['speed']}/200\n🏆 **Battle Rating:** {pokemon['stats'].get('total', sum(pokemon['stats'].values()))}/600 Total Base Stats"
+            embed.add_field(name="📊 Complete Battle Statistics & Combat Analysis", value=stats_text, inline=False)
             
+            # Enhanced competition section
+            competition_text = f"🔥 **WILD POKEMON COMPETITION EVENT!**\n\n⚡ **How to Participate:**\n• Type `!wild_catch` to attempt capture\n• First successful trainer wins\n• Only ONE attempt per person\n\n🏆 **Competition Rules:**\n• Winner takes the Pokemon permanently\n• Added directly to winner's collection\n• No second chances - first come, first served!\n\n⚠️ **Current Status:** 🟢 ACTIVE - No winner yet!"
             embed.add_field(
-                name="🎯 How to Catch", 
-                value="🔥 **Act Fast!** Use `!wild_catch` to attempt capture!\n⚠️ **Competition Mode:** Only ONE trainer can catch it!\n🏆 **Winner takes all!**", 
+                name="⚔️ Community Competition Details & Rules", 
+                value=competition_text, 
                 inline=False
             )
             
-            # Add competition and timing info
+            # Enhanced timing and reward info
             embed.add_field(
-                name="⚔️ Competition Status",
-                value="🟢 **AVAILABLE** - No trainer has claimed it yet!",
+                name="⏰ Event Duration",
+                value=f"� **Active until:**\n• Someone catches it, OR\n• 30 minutes expire\n\n📅 **Next spawn:** 30 min after this ends",
                 inline=True
             )
             embed.add_field(
-                name="⏰ Time Limit",
-                value="🔥 **Until caught or 30 min expires!**",
+                name="🎁 Winner Rewards",
+                value=f"🏆 **Permanent Pokemon addition**\n🌟 **{pokemon['rarity']} rarity Pokemon**\n📊 **{pokemon['stats'].get('total', sum(pokemon['stats'].values()))} total base stats**\n🎯 **Community achievement**",
                 inline=True
             )
             embed.add_field(
-                name="🎁 Reward",
-                value="🏆 **Added to your collection!**",
+                name="💡 Strategy Tips",
+                value=f"🎯 **Success Rate:** {int(pokemon['catch_rate'] * 100)}%\n�‍♂️ **Speed matters** - be first!\n🌟 **{pokemon['rarity']} Pokemon** - great catch!\n🔥 **Act now** - limited time!",
                 inline=True
             )
             
@@ -363,23 +365,24 @@ class Pokemon(commands.Cog):
         embed.add_field(name="🌍 Generation", value=f"**Gen {pokemon['generation']}**", inline=True)
         embed.add_field(name="💪 Total Stats", value=f"**{pokemon['stats'].get('total', sum(pokemon['stats'].values()))}**", inline=True)
         
-        # Add stats preview
+        # Add stats preview with detailed breakdown
         stats = pokemon['stats']
-        stats_text = f"💛 **HP:** {stats['hp']} ⚔️ **ATK:** {stats['attack']} 🛡️ **DEF:** {stats['defense']}\n✨ **SP.ATK:** {stats['sp_attack']} 🔰 **SP.DEF:** {stats['sp_defense']} 💨 **SPD:** {stats['speed']}"
-        embed.add_field(name="📊 Battle Stats", value=stats_text, inline=False)
+        stats_text = f"💛 **HP:** {stats['hp']} ⚔️ **ATK:** {stats['attack']} 🛡️ **DEF:** {stats['defense']}\n✨ **SP.ATK:** {stats['sp_attack']} 🔰 **SP.DEF:** {stats['sp_defense']} 💨 **SPD:** {stats['speed']}\n\n📈 **Base Stat Analysis:**\nPhysical Focus: {stats['attack'] + stats['defense']}/200 | Special Focus: {stats['sp_attack'] + stats['sp_defense']}/200 | Speed Tier: {stats['speed']}/200"
+        embed.add_field(name="📊 Complete Battle Statistics & Analysis", value=stats_text, inline=False)
         
-        embed.add_field(name="🎯 Capture Actions", value="🔥 **Choose your strategy!**\n⚾ `!catch normal` - Use Normal Pokeball\n🌟 `!catch master` - Use Master Ball (100% success!)", inline=False)
+        # Enhanced capture section with detailed strategy
+        capture_text = f"🎯 **Strategic Capture Options:**\n\n⚾ **Normal Pokeball Strategy:**\n• Base Success Rate: {int(pokemon['catch_rate'] * 100)}%\n• Recommended for: Common/Uncommon Pokemon\n• Command: `!catch normal`\n\n🌟 **Master Ball Strategy:**\n• Guaranteed Success Rate: 100%\n• Recommended for: Rare/Legendary Pokemon\n• Command: `!catch master`\n\n💡 **Pro Tips:** Higher rarity = Lower catch rate | Master Balls never fail | Choose wisely!"
+        embed.add_field(name="🔥 Advanced Capture Strategy Guide", value=capture_text, inline=False)
         
-        # Add pokeball count
+        # Enhanced pokeball inventory with detailed breakdown
         normal_balls = self.player_data[user_id]["pokeballs"]["normal"]
         master_balls = self.player_data[user_id]["pokeballs"].get("master", 0)
-        ball_text = f"⚾ **{normal_balls}** Normal Pokeballs"
-        if master_balls > 0:
-            ball_text += f"\n🌟 **{master_balls}** Master Balls"
-        embed.add_field(name="🎒 Your Pokeball Inventory", value=ball_text, inline=True)
+        ball_text = f"⚾ **Normal Pokeballs:** {normal_balls} available\n🌟 **Master Balls:** {master_balls} available\n\n📦 **Inventory Status:** {'Well Stocked' if normal_balls >= 5 else 'Running Low' if normal_balls > 0 else 'Empty'}\n💎 **Premium Stock:** {'Available' if master_balls > 0 else 'None (Ask admin for more)'}"
+        embed.add_field(name="🎒 Complete Pokeball Inventory & Status", value=ball_text, inline=True)
         
-        # Add encounter info
-        embed.add_field(name="🎮 Encounter Type", value="🌿 **Personal Encounter**\n*Only you can catch this Pokemon!*", inline=True)
+        # Enhanced encounter details
+        encounter_details = f"🌿 **Personal Wild Encounter**\n\n🔒 **Exclusivity:** Only you can catch this Pokemon\n⏰ **Time Limit:** No rush - take your time!\n🎮 **Encounter Type:** Random Discovery\n🏆 **Reward:** Permanent collection addition\n\n📊 **Your Stats:** {self.player_data[user_id]['stats']['total_encounters']} total encounters"
+        embed.add_field(name="🎮 Encounter Details & Player Progress", value=encounter_details, inline=True)
         
         # Add generation info
         embed.set_footer(text=f"🎯 Personal encounter for {ctx.author.display_name} | Generation {pokemon['generation']} | Use !catch to capture!")
@@ -483,11 +486,15 @@ class Pokemon(commands.Cog):
             embed.add_field(name="🌿 Source", value="**Personal Encounter**", inline=True)
             embed.add_field(name="🌍 Generation", value=f"**Gen {pokemon['generation']}**", inline=True)
             
-            # Add stats
+            # Enhanced stats and achievement details
             stats = pokemon['stats']
-            embed.add_field(name="💪 Base Stat Total", value=f"**{stats.get('total', sum(stats.values()))}**", inline=True)
-            embed.add_field(name="🎯 Catch Success", value=f"**{int(pokemon['catch_rate'] * 100)}%** base rate", inline=True)
-            embed.add_field(name="🏆 Achievement", value="**New Pokemon Added!**", inline=True)
+            achievement_text = f"🏆 **Capture Achievement Unlocked!**\n\n📊 **Pokemon Stats Breakdown:**\n• Base Stat Total: {stats.get('total', sum(stats.values()))}/600\n• Battle Rating: {'Excellent' if stats.get('total', sum(stats.values())) >= 500 else 'Great' if stats.get('total', sum(stats.values())) >= 400 else 'Good'}\n• Type Advantage: {' / '.join(pokemon['types'])}\n\n🎯 **Capture Analysis:**\n• Success Rate: {int(pokemon['catch_rate'] * 100)}% base chance\n• Ball Used: {ball_name} ({ball_emoji})\n• Capture Method: Personal Encounter Discovery\n• Collection Position: #{caught_pokemon['id']} in your collection"
+            embed.add_field(name="📊 Complete Pokemon Analysis & Achievement Details", value=achievement_text, inline=False)
+            
+            # Add trainer progress and next steps
+            total_caught = len(self.player_data[user_id]["pokemon"])
+            progress_text = f"🎮 **Trainer Progress Update:**\n\n🏆 **Collection Size:** {total_caught} Pokemon caught\n📈 **Experience Level:** {'Master Trainer' if total_caught >= 50 else 'Expert Trainer' if total_caught >= 20 else 'Advanced Trainer' if total_caught >= 10 else 'Novice Trainer'}\n🎯 **Next Goal:** {'Legendary Master!' if total_caught >= 50 else f'{50 - total_caught} more for Master status' if total_caught >= 20 else f'{20 - total_caught} more for Expert status'}\n\n🌟 **Recommendations:**\n• Try wild spawns for competition\n• Use Master Balls on rare Pokemon\n• Check collection with `!collection`"
+            embed.add_field(name="🎮 Trainer Progress & Recommendations", value=progress_text, inline=False)
             
             embed.set_footer(text=f"🎯 Successfully captured by {ctx.author.display_name} | Personal Collection Achievement!")
             embed.set_author(name="Legion Pokemon Capture System", icon_url="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png")
@@ -499,8 +506,8 @@ class Pokemon(commands.Cog):
                 color=discord.Color.red()
             )
             embed.set_thumbnail(url=pokemon['sprite_url'])
-            embed.add_field(name="🎮 Next Steps", value="• Use `!encounter` to find another Pokemon\n• Try using a Master Ball for guaranteed success\n• Keep exploring and catching!", inline=False)
-            embed.add_field(name="💡 Tips", value=f"• **{pokemon['name']}** had a {int(pokemon['catch_rate'] * 100)}% base catch rate\n• Master Balls have 100% success rate\n• Some Pokemon are harder to catch than others!", inline=False)
+            embed.add_field(name="🎮 Next Steps & Strategy", value="• Use `!encounter` to find another Pokemon\n• Try using a Master Ball for guaranteed success\n• Keep exploring and catching!\n• Check your collection with `!collection`\n• Ask admin for more Pokeballs if needed", inline=False)
+            embed.add_field(name="💡 Advanced Tips & Analysis", value=f"• **{pokemon['name']}** had a {int(pokemon['catch_rate'] * 100)}% base catch rate ({pokemon['rarity']} rarity)\n• Master Balls have 100% success rate - save for rare Pokemon\n• {pokemon['rarity']} Pokemon are {'very hard' if pokemon['rarity'] == 'Legendary' else 'moderately hard' if pokemon['rarity'] == 'Rare' else 'somewhat easy'} to catch\n• Your success rate improves with practice!\n• Try again - RNG favors the persistent!", inline=False)
         
         # Add remaining pokeball count
         remaining_normal = self.player_data[user_id]["pokeballs"]["normal"]
@@ -570,7 +577,7 @@ class Pokemon(commands.Cog):
                 by_rarity[rarity] = []
             by_rarity[rarity].append(pokemon)
         
-        # Add fields for each rarity
+        # Add comprehensive Pokemon showcase with full-width fields
         rarity_emojis = {
             "Common": "⚪",
             "Uncommon": "🟢", 
@@ -578,6 +585,7 @@ class Pokemon(commands.Cog):
             "Legendary": "🟡"
         }
         
+        # Create a more detailed showcase for each rarity (full width)
         for rarity in ["Legendary", "Rare", "Uncommon", "Common"]:
             if rarity in by_rarity:
                 pokemon_names = []
@@ -587,34 +595,58 @@ class Pokemon(commands.Cog):
                     caught_from = p.get('caught_from', 'encounter')
                     ball_emoji = "🌟" if caught_with == "master" else "⚾"
                     source_emoji = "🌲" if caught_from == "wild_spawn" else "🌿"
-                    pokemon_names.append(f"{source_emoji} **#{p['id']} {p['name']}** ({type_text}) {ball_emoji}")
+                    stats_total = p.get('stats', {}).get('total', 0)
+                    gen = p.get('generation', 1)
+                    pokemon_names.append(f"{source_emoji} **#{p['id']} {p['name']}** ({type_text}) {ball_emoji} • Gen {gen} • {stats_total} Total Stats")
                 
-                display_names = pokemon_names[:6]  # Show max 6 per rarity for better display
-                if len(pokemon_names) > 6:
-                    display_names.append(f"*... and {len(pokemon_names) - 6} more {rarity.lower()} Pokemon*")
+                display_names = pokemon_names[:8]  # Show more Pokemon for fuller display
+                if len(pokemon_names) > 8:
+                    display_names.append(f"*... and {len(pokemon_names) - 8} more {rarity.lower()} Pokemon in your collection*")
                 
+                # Full width field for better visual impact
                 embed.add_field(
-                    name=f"{rarity_emojis.get(rarity, '⚪')} {rarity} Collection ({len(by_rarity[rarity])})",
+                    name=f"{rarity_emojis.get(rarity, '⚪')} **{rarity.upper()} COLLECTION** — {len(by_rarity[rarity])} Pokemon Collected",
                     value="\n".join(display_names),
-                    inline=True
+                    inline=False  # Full width for maximum visual impact
                 )
         
-        # Add collection stats
+        # Enhanced collection stats with detailed analysis
         total_stats = sum(p.get('stats', {}).get('total', 0) for p in pokemon_list)
         avg_stats = total_stats // len(pokemon_list) if pokemon_list else 0
         
-        # Count different catch methods
+        # Count different catch methods and analyze collection
         wild_caught = len([p for p in pokemon_list if p.get('caught_from') == 'wild_spawn'])
         encounter_caught = len([p for p in pokemon_list if p.get('caught_from') != 'wild_spawn'])
         master_ball_used = len([p for p in pokemon_list if p.get('caught_with') == 'master'])
         
-        stats_text = f"📊 **Total Base Stats:** {total_stats}\n📈 **Average Base Stats:** {avg_stats}\n"
-        stats_text += f"🌲 **Wild Spawns Caught:** {wild_caught}\n🌿 **Personal Encounters:** {encounter_caught}\n"
-        stats_text += f"🌟 **Master Balls Used:** {master_ball_used}"
+        # Generation analysis
+        gen_count = {}
+        for p in pokemon_list:
+            gen = p.get('generation', 'Unknown')
+            gen_count[gen] = gen_count.get(gen, 0) + 1
+        
+        # Type analysis
+        type_count = {}
+        for p in pokemon_list:
+            for ptype in p.get('types', []):
+                type_count[ptype] = type_count.get(ptype, 0) + 1
+        
+        stats_text = f"📊 **Collection Power Analysis:**\n• Total Combined Base Stats: {total_stats:,}\n• Average Pokemon Strength: {avg_stats}/600\n• Collection Battle Rating: {'S-Tier' if avg_stats >= 500 else 'A-Tier' if avg_stats >= 400 else 'B-Tier' if avg_stats >= 300 else 'C-Tier'}\n\n� **Catch Method Breakdown:**\n• 🌲 Wild Competition Wins: {wild_caught}\n• 🌿 Personal Encounters: {encounter_caught}\n• 🌟 Master Ball Captures: {master_ball_used}\n• ⚾ Regular Ball Success: {len(pokemon_list) - master_ball_used}\n\n🌍 **Generation Coverage:**\n" + " | ".join([f"Gen {gen}: {count}" for gen, count in sorted(gen_count.items()) if isinstance(gen, int)][:4])
         
         embed.add_field(
-            name="📊 Collection Statistics", 
+            name="📊 Advanced Collection Analytics & Performance Metrics", 
             value=stats_text,
+            inline=False
+        )
+        
+        # Add type diversity analysis
+        top_types = sorted(type_count.items(), key=lambda x: x[1], reverse=True)[:5]
+        type_text = f"�️ **Type Diversity Analysis:**\n\n🔝 **Most Collected Types:**\n" + "\n".join([f"• {ptype}: {count} Pokemon" for ptype, count in top_types])
+        type_text += f"\n\n📈 **Diversity Score:** {len(type_count)}/18 unique types collected\n🎯 **Specialization:** {'Type Master' if any(count >= len(pokemon_list)//3 for _, count in top_types) else 'Balanced Collector'}"
+        
+        embed.add_field(
+            name="🏷️ Pokemon Type Analysis & Collection Strategy",
+            value=type_text,
             inline=False
         )
         
@@ -1129,16 +1161,15 @@ class Pokemon(commands.Cog):
             embed.add_field(name="⭐ Rarity", value=f"**{pokemon['rarity']}**", inline=True)
             embed.add_field(name="🆔 Collection ID", value=f"**#{caught_pokemon['id']}**", inline=True)
             
-            # Add stats information
+            # Enhanced wild catch achievement section
             stats = pokemon['stats']
-            embed.add_field(name="⚾ Caught With", value="**Normal Pokeball**", inline=True)
-            embed.add_field(name="🌲 Source", value="**Wild Spawn**", inline=True)
-            embed.add_field(name="💪 Base Stat Total", value=f"**{stats.get('total', 0)}**", inline=True)
+            achievement_text = f"🏆 **WILD POKEMON COMPETITION VICTORY!**\n\n⚡ **Competition Results:**\n• Winner: {ctx.author.display_name}\n• Pokemon: {pokemon['name']} ({pokemon['rarity']})\n• Battle Stats: {stats.get('total', sum(stats.values()))}/600 total power\n• Success Rate: {int(pokemon['catch_rate'] * 100)}% base chance\n\n� **Victory Analysis:**\n• Capture Method: Wild Spawn Competition\n• Ball Used: Normal Pokeball (⚾)\n• Community Achievement: First to claim!\n• Collection Position: #{caught_pokemon['id']} in your collection"
+            embed.add_field(name="🏆 Competition Victory Analysis & Achievement Details", value=achievement_text, inline=False)
             
-            # Add generation and next spawn info
-            embed.add_field(name="🌍 Generation", value=f"**Generation {pokemon['generation']}**", inline=True)
-            embed.add_field(name="⏰ Next Wild Spawn", value="**30 minutes**", inline=True)
-            embed.add_field(name="🎯 Success Rate", value=f"**{int(pokemon['catch_rate'] * 100)}%**", inline=True)
+            # Add community and timing info
+            total_caught = len(self.player_data[user_id]["pokemon"])
+            community_text = f"🌍 **Community Event Results:**\n\n🏃‍♂️ **Speed Champion:** You were fastest to respond!\n🎮 **Trainer Level:** {'Competition Master' if total_caught >= 30 else 'Speed Expert' if total_caught >= 15 else 'Quick Trainer'}\n⚡ **Next Opportunity:** Wild spawn in 30 minutes\n\n📊 **Event Stats:**\n• Event Type: Community Wild Spawn\n• Participation: Open competition\n• Result: Victory secured!\n• Reward: Permanent collection addition"
+            embed.add_field(name="� Community Event Results & Next Opportunities", value=community_text, inline=False)
             
             embed.set_footer(text=f"🏆 Wild Pokemon claimed by {ctx.author.display_name} | Community Achievement Unlocked!")
             
