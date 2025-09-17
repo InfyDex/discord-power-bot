@@ -91,15 +91,41 @@ class Pokemon(commands.Cog):
     async def spawn_wild_pokemon(self):
         """Spawn a wild Pokemon in the designated channel"""
         try:
-            # Find the pokemon channel
+            # Find the pokemon channel with enhanced debugging
             channel = None
+            target_channel_name = self.wild_spawn_data["spawn_channel"]
+            
+            print(f"Looking for channel named: '{target_channel_name}'")
+            print(f"Bot is in {len(self.bot.guilds)} guild(s)")
+            
             for guild in self.bot.guilds:
-                channel = discord.utils.get(guild.text_channels, name=self.wild_spawn_data["spawn_channel"])
+                print(f"Searching in guild: {guild.name}")
+                
+                # List all text channels for debugging
+                text_channels = [ch.name for ch in guild.text_channels]
+                print(f"Available text channels: {text_channels}")
+                
+                # Try to find the channel
+                channel = discord.utils.get(guild.text_channels, name=target_channel_name)
                 if channel:
+                    print(f"Found channel: {channel.name} (ID: {channel.id})")
                     break
+                else:
+                    # Try case-insensitive search
+                    for ch in guild.text_channels:
+                        if ch.name.lower() == target_channel_name.lower():
+                            channel = ch
+                            print(f"Found channel with case-insensitive match: {ch.name} (ID: {ch.id})")
+                            break
+                    if channel:
+                        break
             
             if not channel:
-                print(f"Pokemon spawn channel '{self.wild_spawn_data['spawn_channel']}' not found!")
+                print(f"Pokemon spawn channel '{target_channel_name}' not found in any guild!")
+                print("Please make sure:")
+                print("1. The bot has access to the channel")
+                print("2. The channel name is exactly 'pokemon' (lowercase)")
+                print("3. The bot has 'View Channels' and 'Send Messages' permissions")
                 return
             
             # Get a common or uncommon Pokemon
@@ -365,24 +391,23 @@ class Pokemon(commands.Cog):
         embed.add_field(name="🌍 Generation", value=f"**Gen {pokemon['generation']}**", inline=True)
         embed.add_field(name="💪 Total Stats", value=f"**{pokemon['stats'].get('total', sum(pokemon['stats'].values()))}**", inline=True)
         
-        # Add stats preview with detailed breakdown
+        # Add stats preview - more compact
         stats = pokemon['stats']
-        stats_text = f"💛 **HP:** {stats['hp']} ⚔️ **ATK:** {stats['attack']} 🛡️ **DEF:** {stats['defense']}\n✨ **SP.ATK:** {stats['sp_attack']} 🔰 **SP.DEF:** {stats['sp_defense']} 💨 **SPD:** {stats['speed']}\n\n📈 **Base Stat Analysis:**\nPhysical Focus: {stats['attack'] + stats['defense']}/200 | Special Focus: {stats['sp_attack'] + stats['sp_defense']}/200 | Speed Tier: {stats['speed']}/200"
-        embed.add_field(name="📊 Complete Battle Statistics & Analysis", value=stats_text, inline=False)
+        stats_text = f"💛 **HP:** {stats['hp']} ⚔️ **ATK:** {stats['attack']} 🛡️ **DEF:** {stats['defense']}\n✨ **SP.ATK:** {stats['sp_attack']} 🔰 **SP.DEF:** {stats['sp_defense']} 💨 **SPD:** {stats['speed']}"
+        embed.add_field(name="📊 Base Stats", value=stats_text, inline=False)
         
-        # Enhanced capture section with detailed strategy
-        capture_text = f"🎯 **Strategic Capture Options:**\n\n⚾ **Normal Pokeball Strategy:**\n• Base Success Rate: {int(pokemon['catch_rate'] * 100)}%\n• Recommended for: Common/Uncommon Pokemon\n• Command: `!catch normal`\n\n🌟 **Master Ball Strategy:**\n• Guaranteed Success Rate: 100%\n• Recommended for: Rare/Legendary Pokemon\n• Command: `!catch master`\n\n💡 **Pro Tips:** Higher rarity = Lower catch rate | Master Balls never fail | Choose wisely!"
-        embed.add_field(name="🔥 Advanced Capture Strategy Guide", value=capture_text, inline=False)
+        # Simple capture instructions
+        embed.add_field(name="🎯 How to Catch", value="Use `!catch normal` or `!catch master` to attempt capture!", inline=False)
         
-        # Enhanced pokeball inventory with detailed breakdown
+        # Pokeball inventory - more compact
         normal_balls = self.player_data[user_id]["pokeballs"]["normal"]
         master_balls = self.player_data[user_id]["pokeballs"].get("master", 0)
-        ball_text = f"⚾ **Normal Pokeballs:** {normal_balls} available\n🌟 **Master Balls:** {master_balls} available\n\n📦 **Inventory Status:** {'Well Stocked' if normal_balls >= 5 else 'Running Low' if normal_balls > 0 else 'Empty'}\n💎 **Premium Stock:** {'Available' if master_balls > 0 else 'None (Ask admin for more)'}"
-        embed.add_field(name="🎒 Complete Pokeball Inventory & Status", value=ball_text, inline=True)
+        ball_text = f"⚾ **{normal_balls}** Normal Pokeballs\n🌟 **{master_balls}** Master Balls"
+        embed.add_field(name="🎒 Your Pokeballs", value=ball_text, inline=True)
         
-        # Enhanced encounter details
-        encounter_details = f"🌿 **Personal Wild Encounter**\n\n🔒 **Exclusivity:** Only you can catch this Pokemon\n⏰ **Time Limit:** No rush - take your time!\n🎮 **Encounter Type:** Random Discovery\n🏆 **Reward:** Permanent collection addition\n\n📊 **Your Stats:** {self.player_data[user_id]['stats']['total_encounters']} total encounters"
-        embed.add_field(name="🎮 Encounter Details & Player Progress", value=encounter_details, inline=True)
+        # Encounter type info
+        encounter_info = f"🌿 **Personal Encounter**\n🔒 Only you can catch this!\n📊 **Encounters:** {self.player_data[user_id]['stats']['total_encounters']}"
+        embed.add_field(name="🎮 Encounter Info", value=encounter_info, inline=True)
         
         # Add generation info
         embed.set_footer(text=f"🎯 Personal encounter for {ctx.author.display_name} | Generation {pokemon['generation']} | Use !catch to capture!")
@@ -1253,6 +1278,70 @@ class Pokemon(commands.Cog):
         )
         embed.set_footer(text=f"Triggered by {ctx.author.display_name}")
         
+        await ctx.send(embed=embed)
+    
+    @commands.command(name='debug_channels', aliases=['dchannels'])
+    async def debug_channels(self, ctx):
+        """Debug command to check available channels and bot permissions"""
+        if not Config.is_admin(ctx.author.id):
+            embed = discord.Embed(
+                title="❌ Access Denied",
+                description="You don't have permission to use admin commands.",
+                color=discord.Color.red()
+            )
+            await ctx.send(embed=embed)
+            return
+        
+        embed = discord.Embed(
+            title="🔧 Channel Debug Information",
+            description="Bot channel access and permissions debug",
+            color=discord.Color.blue()
+        )
+        
+        target_channel = self.wild_spawn_data["spawn_channel"]
+        embed.add_field(
+            name="🎯 Target Channel",
+            value=f"Looking for: `{target_channel}`",
+            inline=False
+        )
+        
+        # Check each guild
+        for guild in self.bot.guilds:
+            guild_info = f"**Guild:** {guild.name} (ID: {guild.id})\n"
+            
+            # List all text channels
+            text_channels = [ch.name for ch in guild.text_channels]
+            guild_info += f"**Text Channels:** {', '.join(text_channels[:10])}"
+            if len(text_channels) > 10:
+                guild_info += f" ... (+{len(text_channels)-10} more)"
+            
+            # Check if target channel exists
+            target_ch = discord.utils.get(guild.text_channels, name=target_channel)
+            if target_ch:
+                guild_info += f"\n✅ **Found `{target_channel}` channel!**"
+                guild_info += f"\n📍 **Channel ID:** {target_ch.id}"
+                
+                # Check permissions
+                perms = target_ch.permissions_for(guild.me)
+                guild_info += f"\n🔑 **Permissions:** "
+                guild_info += f"View: {'✅' if perms.view_channel else '❌'} | "
+                guild_info += f"Send: {'✅' if perms.send_messages else '❌'} | "
+                guild_info += f"Embed: {'✅' if perms.embed_links else '❌'}"
+            else:
+                guild_info += f"\n❌ **`{target_channel}` channel not found**"
+                
+                # Check for similar names
+                similar = [ch.name for ch in guild.text_channels if target_channel.lower() in ch.name.lower()]
+                if similar:
+                    guild_info += f"\n🔍 **Similar channels:** {', '.join(similar[:3])}"
+            
+            embed.add_field(
+                name=f"🏠 {guild.name}",
+                value=guild_info,
+                inline=False
+            )
+        
+        embed.set_footer(text=f"Debug requested by {ctx.author.display_name}")
         await ctx.send(embed=embed)
 
 async def setup(bot):
