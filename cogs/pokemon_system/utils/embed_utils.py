@@ -88,9 +88,6 @@ class PokemonEmbedUtils:
         # Simple capture instructions
         embed.add_field(name="🎯 How to Catch", value="Use `!catch normal` or `!catch master` to attempt capture!", inline=False)
         
-        # Add user info as a field (where mentions work)
-        embed.add_field(name="👤 Trainer", value=user.mention, inline=True)
-        
         # Static footer
         embed.set_footer(text=f"Personal Encounter • Gen {pokemon.generation} • Legion Pokemon System")
         embed.set_author(name="Legion Pokemon", icon_url="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png")
@@ -109,8 +106,6 @@ class PokemonEmbedUtils:
         embed.set_thumbnail(url=user.display_avatar.url)
         
         # Add Pokemon info
-        embed.add_field(name="Type", value=PokemonTypeUtils.format_types(pokemon.types), inline=True)
-        embed.add_field(name="Rarity", value=f"{pokemon.rarity}", inline=True)
         embed.add_field(name="Collection ID", value=f"#{collection_id}", inline=True)
         
         # Add capture details
@@ -118,13 +113,6 @@ class PokemonEmbedUtils:
         ball_name = "Normal Pokeball" if ball_type == "normal" else "Master Ball"
         embed.add_field(name=f"{ball_emoji} Caught With", value=f"{ball_name}", inline=True)
         embed.add_field(name="Source", value="Personal Encounter", inline=True)
-        embed.add_field(name="Generation", value=f"Gen {pokemon.generation}", inline=True)
-        
-        # Simple collection info
-        embed.add_field(name="🏆 Collection Progress", value=f"Total Pokemon: {total_caught}", inline=False)
-        
-        # Add caught by info as a field (where mentions work)
-        embed.add_field(name="👤 Caught By", value=user.mention, inline=True)
         
         # Static footer
         embed.set_footer(text="Pokemon Caught • Legion Pokemon System")
