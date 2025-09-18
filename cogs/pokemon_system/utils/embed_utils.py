@@ -57,7 +57,7 @@ class PokemonEmbedUtils:
         return embed
     
     @staticmethod
-    def create_encounter_embed(pokemon: PokemonData, player_name: str, player_avatar_url: str, encounter_type: str = "encounter") -> discord.Embed:
+    def create_encounter_embed(pokemon: PokemonData, player_name: str, player_avatar_url: str, encounter_type: str = "encounter", player_display_name: str = None) -> discord.Embed:
         """Create embed for personal Pokemon encounter"""
         embed = discord.Embed(
             title=f"🌿 Wild {pokemon.name} Appeared!",
@@ -88,14 +88,15 @@ class PokemonEmbedUtils:
         # Simple capture instructions
         embed.add_field(name="🎯 How to Catch", value="Use `!catch normal` or `!catch master` to attempt capture!", inline=False)
         
-        # Clean footer
-        embed.set_footer(text=f"Personal encounter for {player_name} • Gen {pokemon.generation} • Use !catch to capture")
+        # Clean footer - use display name instead of mention since footers don't support mentions
+        footer_name = player_display_name if player_display_name else player_name.replace('<@', '').replace('>', '')
+        embed.set_footer(text=f"Personal encounter for {footer_name} • Gen {pokemon.generation} • Use !catch to capture")
         embed.set_author(name="Legion Pokemon", icon_url="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png")
         
         return embed
     
     @staticmethod
-    def create_catch_success_embed(pokemon: PokemonData, player_name: str, player_avatar_url: str, ball_type: str, collection_id: int, total_caught: int) -> discord.Embed:
+    def create_catch_success_embed(pokemon: PokemonData, player_name: str, player_avatar_url: str, ball_type: str, collection_id: int, total_caught: int, player_display_name: str = None) -> discord.Embed:
         """Create embed for successful Pokemon catch"""
         embed = discord.Embed(
             title="🎉 Pokemon Caught!",
@@ -120,7 +121,11 @@ class PokemonEmbedUtils:
         # Simple collection info
         embed.add_field(name="🏆 Collection Progress", value=f"Total Pokemon: {total_caught}", inline=False)
         
-        embed.set_footer(text=f"Caught by {player_name}")
+        # Add caught by info as a field (where mentions work)
+        embed.add_field(name="👤 Caught By", value=player_name, inline=True)
+        
+        # Simple footer without user info
+        embed.set_footer(text="Legion Pokemon System")
         embed.set_author(name="Legion Pokemon", icon_url="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png")
         
         return embed
