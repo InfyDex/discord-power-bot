@@ -158,7 +158,7 @@ class PlayerData:
         return datetime.now() - last_time >= cooldown
     
     def get_cooldown_remaining_seconds(self, cooldown_minutes: int = 5) -> int:
-        """Get remaining cooldown time in seconds"""
+        """Get remaining cooldown time in seconds (for backward compatibility)"""
         if not self.last_encounter:
             return 0
         
@@ -176,6 +176,44 @@ class PlayerData:
         
         # Use round() instead of int() to handle floating point precision better
         return max(0, round(time_left.total_seconds()))
+    
+    def get_cooldown_remaining_formatted(self, cooldown_minutes: int = 5) -> str:
+        """Get remaining cooldown time in a user-friendly format"""
+        if not self.last_encounter:
+            return None
+        
+        try:
+            last_time = datetime.fromisoformat(self.last_encounter)
+        except (ValueError, TypeError):
+            # If last_encounter has invalid format, treat as no cooldown
+            return None
+        
+        # Validate cooldown_minutes for reasonable values (1-60 minutes)
+        cooldown_minutes = max(1, min(cooldown_minutes, 60))
+        
+        next_encounter = last_time + timedelta(minutes=cooldown_minutes)
+        time_left = next_encounter - datetime.now()
+        
+        total_seconds = max(0, round(time_left.total_seconds()))
+        
+        # If cooldown is expired, return None (no cooldown message needed)
+        if total_seconds <= 0:
+            return None
+        
+        # If less than 1 second remaining, show 1s for better UX
+        if total_seconds < 1:
+            return "1s"
+        
+        minutes = total_seconds // 60
+        seconds = total_seconds % 60
+        
+        if minutes > 0:
+            if seconds > 0:
+                return f"{minutes}m {seconds}s"
+            else:
+                return f"{minutes}m"
+        else:
+            return f"{seconds}s"
     
     def add_encounter(self, pokemon: PokemonData):
         """Set current encounter and update stats"""

@@ -58,13 +58,26 @@ class ValidationUtils:
             
             if time_diff < cooldown_time:
                 remaining = cooldown_time - time_diff
-                minutes = int(remaining.total_seconds() // 60)
-                seconds = int(remaining.total_seconds() % 60)
+                total_seconds = max(0, round(remaining.total_seconds()))
                 
-                if minutes > 0:
-                    time_str = f"{minutes}m {seconds}s"
+                # If cooldown is expired, allow the action
+                if total_seconds <= 0:
+                    return True, None
+                
+                # If less than 1 second remaining, show 1s for better UX
+                if total_seconds < 1:
+                    time_str = "1s"
                 else:
-                    time_str = f"{seconds}s"
+                    minutes = total_seconds // 60
+                    seconds = total_seconds % 60
+                    
+                    if minutes > 0:
+                        if seconds > 0:
+                            time_str = f"{minutes}m {seconds}s"
+                        else:
+                            time_str = f"{minutes}m"
+                    else:
+                        time_str = f"{seconds}s"
                 
                 return False, f"Cooldown active. Please wait {time_str}"
             
