@@ -97,12 +97,13 @@ class AdminPokemonCommands:
             await ctx.send(embed=embed)
             return
         
-        # Validate ball type
-        valid_ball_types = ["normal", "master"]
-        if ball_type.lower() not in valid_ball_types:
+        # Validate ball type using ValidationUtils
+        from ..utils.validation_utils import ValidationUtils
+        is_valid, error_message = ValidationUtils.validate_ball_type(ball_type)
+        if not is_valid:
             embed = discord.Embed(
                 title="❌ Invalid Ball Type",
-                description=f"Valid ball types are: {', '.join(valid_ball_types)}",
+                description=f"Valid ball types are: poke, great, ultra, master",
                 color=discord.Color.red()
             )
             await ctx.send(embed=embed)
@@ -121,30 +122,43 @@ class AdminPokemonCommands:
         # Get player and add pokeballs
         user_id = str(user.id)
         player = self.player_db.get_player(user_id)
-        player.inventory.add_pokeballs(ball_type.lower(), count)
+        
+        # Normalize ball type
+        normalized_ball_type = player.inventory._normalize_ball_type(ball_type)
+        ball_info = player.inventory.get_ball_info(normalized_ball_type)
+        
+        player.inventory.add_pokeballs(normalized_ball_type, count)
         self.player_db.save_player(user_id)
         
-        # Create confirmation embed
-        ball_emoji = "⚾" if ball_type.lower() == "normal" else "🌟"
+        # Create confirmation embed with proper ball name and icon
+        ball_name = ball_info.get("name", ball_type.title() + " Ball")
+        ball_icon = ball_info.get("icon", "⚾")
+        
         embed = discord.Embed(
             title="✅ Pokeballs Given",
-            description=f"Successfully gave {count} {ball_type.title()} Pokeball(s) to {user.mention}!",
+            description=f"Successfully gave {count} {ball_name}(s) to {user.mention}!",
             color=discord.Color.green()
         )
         
-        # Show user's current pokeball count
-        current_normal = player.inventory.normal_pokeballs
-        current_master = player.inventory.master_pokeballs
+        # Show user's current pokeball inventory
+        all_balls = player.inventory.get_all_balls()
+        inventory_text = ""
+        for ball_type_key, ball_data in all_balls.items():
+            if ball_data["count"] > 0:
+                inventory_text += f"{ball_data['name']}: {ball_data['count']}\n"
+        
+        if not inventory_text:
+            inventory_text = "No pokeballs"
         
         embed.add_field(
-            name=f"{ball_emoji} {user.display_name}'s Pokeballs",
-            value=f"**Normal:** {current_normal}\n**Master:** {current_master}",
-            inline=True
+            name=f"🎒 {user.display_name}'s Pokeball Inventory",
+            value=inventory_text,
+            inline=False
         )
         
         embed.add_field(
             name="📋 Action Details",
-            value=f"**Given:** {count} {ball_type.title()} Pokeball(s)\n**To:** {user.display_name}\n**By:** {ctx.author.display_name}",
+            value=f"**Given:** {count} {ball_name}(s)\n**To:** {user.display_name}\n**By:** {ctx.author.display_name}",
             inline=True
         )
         

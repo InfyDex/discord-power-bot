@@ -86,11 +86,19 @@ class CollectionPokemonCommands:
         join_date = datetime.fromisoformat(player.stats.join_date).strftime("%B %d, %Y")
         embed.add_field(name="📅 Trainer Since", value=join_date, inline=True)
         
-        # Inventory
-        normal_balls = player.inventory.normal_pokeballs
-        master_balls = player.inventory.master_pokeballs
-        embed.add_field(name="🥎 Normal Balls", value=f"{normal_balls}", inline=True)
-        embed.add_field(name="🌟 Master Balls", value=f"{master_balls}", inline=True)
+        # Enhanced Pokeball Inventory with icons
+        all_balls = player.inventory.get_all_balls()
+        pokeball_text = ""
+        for ball_type, ball_data in all_balls.items():
+            if ball_data["count"] > 0:
+                # Use emoji as fallback if icon URL fails
+                emoji = {"poke": "⚪", "great": "🔵", "ultra": "🟡", "master": "🟣"}.get(ball_type, "⚫")
+                pokeball_text += f"{emoji} {ball_data['name']}: {ball_data['count']}\n"
+        
+        if not pokeball_text:
+            pokeball_text = "No pokeballs"
+            
+        embed.add_field(name="� Pokeball Inventory", value=pokeball_text, inline=True)
         
         # Rarity breakdown
         if player.pokemon_collection:
@@ -121,13 +129,27 @@ class CollectionPokemonCommands:
         
         embed.set_thumbnail(url=unified_ctx.author.display_avatar.url)
         
-        # Pokeballs
-        normal_balls = player.inventory.normal_pokeballs
-        master_balls = player.inventory.master_pokeballs
+        # Enhanced Pokeball Inventory
+        all_balls = player.inventory.get_all_balls()
+        pokeball_text = ""
+        total_value = 0
         
-        embed.add_field(name="🥎 Normal Pokeballs", value=f"{normal_balls}", inline=True)
-        embed.add_field(name="🌟 Master Balls", value=f"{master_balls}", inline=True)
-        embed.add_field(name="💰 Total Value", value=f"{normal_balls + master_balls * 10} credits", inline=True)
+        for ball_type, ball_data in all_balls.items():
+            count = ball_data["count"]
+            if count > 0:
+                # Use emoji as fallback
+                emoji = {"poke": "⚪", "great": "🔵", "ultra": "🟡", "master": "🟣"}.get(ball_type, "⚫")
+                pokeball_text += f"{emoji} {ball_data['name']}: **{count}**\n"
+                
+                # Calculate value (example values)
+                values = {"poke": 1, "great": 3, "ultra": 6, "master": 50}
+                total_value += count * values.get(ball_type, 1)
+        
+        if not pokeball_text:
+            pokeball_text = "No pokeballs in inventory"
+            
+        embed.add_field(name="� Pokeball Inventory", value=pokeball_text, inline=False)
+        embed.add_field(name="💰 Total Inventory Value", value=f"{total_value} credits", inline=True)
         
         # Stats
         total_caught = len(player.pokemon_collection)

@@ -110,10 +110,14 @@ class BasicPokemonCommands:
             await unified_ctx.send_error(embed)
             return False
         elif reason == "no_pokeball":
-            ball_name = "Normal Pokeballs" if ball_type == "normal" else "Master Balls"
+            # Get the normalized ball type and proper name
+            normalized_ball_type = player.inventory._normalize_ball_type(ball_type)
+            ball_info = player.inventory.get_ball_info(normalized_ball_type)
+            ball_name = ball_info.get("name", ball_type.title() + " Balls")
+            
             embed = discord.Embed(
                 title="❌ No Pokeballs",
-                description=f"You don't have any {ball_name} left!",
+                description=f"You don't have any {ball_name}s left!",
                 color=discord.Color.red()
             )
             await unified_ctx.send_error(embed)

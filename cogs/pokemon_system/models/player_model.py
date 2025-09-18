@@ -11,30 +11,78 @@ from .pokemon_model import CaughtPokemon, PokemonData
 class PlayerInventory:
     """Manages player's pokeball inventory"""
     
+    # Poké Ball configurations with catch rate modifiers and icons
+    POKEBALL_CONFIG = {
+        "poke": {
+            "name": "Poké Ball",
+            "catch_rate_modifier": 1.0,
+            "icon": "https://archives.bulbagarden.net/media/upload/b/b3/Pok%C3%A9_Ball_ZA_Art.png",
+            "default_count": 5
+        },
+        "great": {
+            "name": "Great Ball", 
+            "catch_rate_modifier": 1.5,
+            "icon": "https://archives.bulbagarden.net/media/upload/5/54/Bag_Great_Ball_SV_Sprite.png",
+            "default_count": 0
+        },
+        "ultra": {
+            "name": "Ultra Ball",
+            "catch_rate_modifier": 2.0, 
+            "icon": "https://archives.bulbagarden.net/media/upload/5/55/Bag_Ultra_Ball_SV_Sprite.png",
+            "default_count": 0
+        },
+        "master": {
+            "name": "Master Ball",
+            "catch_rate_modifier": float('inf'),  # Guaranteed capture
+            "icon": "https://archives.bulbagarden.net/media/upload/a/a6/Bag_Master_Ball_SV_Sprite.png", 
+            "default_count": 0
+        }
+    }
+    
     def __init__(self, inventory_data: Dict[str, int] = None):
         if inventory_data is None:
-            inventory_data = {"normal": 5, "master": 0}
+            inventory_data = {}
         
-        self.normal_pokeballs = inventory_data.get("normal", 5)
-        self.master_pokeballs = inventory_data.get("master", 0)
+        # Initialize ball counts (backward compatibility + new balls)
+        self.poke_balls = inventory_data.get("poke", inventory_data.get("normal", 5))  # Backward compatibility
+        self.great_balls = inventory_data.get("great", 0)
+        self.ultra_balls = inventory_data.get("ultra", 0)
+        self.master_balls = inventory_data.get("master", 0)
+        
+        # Legacy support
+        self.normal_pokeballs = self.poke_balls  # Backward compatibility
     
     def has_pokeball(self, ball_type: str) -> bool:
         """Check if player has pokeballs of specified type"""
-        if ball_type == "normal":
-            return self.normal_pokeballs > 0
+        # Normalize ball type names
+        ball_type = self._normalize_ball_type(ball_type)
+        
+        if ball_type == "poke":
+            return self.poke_balls > 0
+        elif ball_type == "great":
+            return self.great_balls > 0
+        elif ball_type == "ultra":
+            return self.ultra_balls > 0
         elif ball_type == "master":
-            return self.master_pokeballs > 0
+            return self.master_balls > 0
         return False
     
     def use_pokeball(self, ball_type: str) -> bool:
         """Use a pokeball, returns True if successful"""
+        ball_type = self._normalize_ball_type(ball_type)
+        
         if not self.has_pokeball(ball_type):
             return False
         
-        if ball_type == "normal":
-            self.normal_pokeballs -= 1
+        if ball_type == "poke":
+            self.poke_balls -= 1
+            self.normal_pokeballs = self.poke_balls  # Keep legacy sync
+        elif ball_type == "great":
+            self.great_balls -= 1
+        elif ball_type == "ultra":
+            self.ultra_balls -= 1
         elif ball_type == "master":
-            self.master_pokeballs -= 1
+            self.master_balls -= 1
         else:
             return False
         
@@ -42,24 +90,72 @@ class PlayerInventory:
     
     def add_pokeballs(self, ball_type: str, count: int):
         """Add pokeballs to inventory"""
-        if ball_type == "normal":
-            self.normal_pokeballs += count
+        ball_type = self._normalize_ball_type(ball_type)
+        
+        if ball_type == "poke":
+            self.poke_balls += count
+            self.normal_pokeballs = self.poke_balls  # Keep legacy sync
+        elif ball_type == "great":
+            self.great_balls += count
+        elif ball_type == "ultra":
+            self.ultra_balls += count
         elif ball_type == "master":
-            self.master_pokeballs += count
+            self.master_balls += count
     
     def get_pokeball_count(self, ball_type: str) -> int:
         """Get the count of a specific pokeball type"""
-        if ball_type == "normal":
-            return self.normal_pokeballs
+        ball_type = self._normalize_ball_type(ball_type)
+        
+        if ball_type == "poke":
+            return self.poke_balls
+        elif ball_type == "great":
+            return self.great_balls
+        elif ball_type == "ultra":
+            return self.ultra_balls
         elif ball_type == "master":
-            return self.master_pokeballs
+            return self.master_balls
         return 0
+    
+    def _normalize_ball_type(self, ball_type: str) -> str:
+        """Normalize ball type names for backward compatibility"""
+        ball_type = ball_type.lower().strip()
+        
+        # Handle legacy names
+        if ball_type in ["normal", "pokeball", "poke_ball"]:
+            return "poke"
+        elif ball_type in ["great_ball"]:
+            return "great"
+        elif ball_type in ["ultra_ball"]:
+            return "ultra"
+        elif ball_type in ["master_ball"]:
+            return "master"
+        
+        return ball_type
+    
+    def get_ball_info(self, ball_type: str) -> Dict[str, Any]:
+        """Get ball configuration info"""
+        ball_type = self._normalize_ball_type(ball_type)
+        return self.POKEBALL_CONFIG.get(ball_type, {})
+    
+    def get_all_balls(self) -> Dict[str, Dict[str, Any]]:
+        """Get all ball types with their counts and info"""
+        result = {}
+        for ball_type, config in self.POKEBALL_CONFIG.items():
+            result[ball_type] = {
+                **config,
+                "count": self.get_pokeball_count(ball_type)
+            }
+        return result
     
     def to_dict(self) -> Dict[str, int]:
         """Convert inventory to dictionary format"""
         return {
-            "normal": self.normal_pokeballs,
-            "master": self.master_pokeballs
+            "poke": self.poke_balls,
+            "great": self.great_balls,
+            "ultra": self.ultra_balls,
+            "master": self.master_balls,
+            # Legacy compatibility
+            "normal": self.poke_balls
         }
 
 
@@ -131,7 +227,14 @@ class PlayerData:
         """Get default player data for new players"""
         return {
             "pokemon": [],
-            "pokeballs": {"normal": 5, "master": 0},
+            "pokeballs": {
+                "poke": 5,
+                "great": 0,
+                "ultra": 0, 
+                "master": 0,
+                # Legacy compatibility
+                "normal": 5
+            },
             "last_encounter": None,
             "stats": {
                 "total_caught": 0,
@@ -231,14 +334,26 @@ class PlayerData:
         if self.encounter_catch_attempted:
             return False, "already_attempted"
         
+        # Normalize ball type
+        ball_type = self.inventory._normalize_ball_type(ball_type)
+        
         if not self.inventory.use_pokeball(ball_type):
             return False, "no_pokeball"
         
         # Mark that we've attempted to catch this encounter
         self.encounter_catch_attempted = True
         
-        # Calculate catch success
-        catch_rate = 1.0 if ball_type == "master" else self.current_encounter.catch_rate
+        # Calculate catch success with ball type modifier
+        ball_config = self.inventory.get_ball_info(ball_type)
+        catch_rate_modifier = ball_config.get("catch_rate_modifier", 1.0)
+        
+        if catch_rate_modifier == float('inf'):  # Master Ball
+            catch_rate = 1.0
+        else:
+            # Apply ball modifier to base catch rate
+            base_catch_rate = self.current_encounter.catch_rate
+            catch_rate = min(1.0, base_catch_rate * catch_rate_modifier)
+        
         import random
         success = random.random() <= catch_rate
         

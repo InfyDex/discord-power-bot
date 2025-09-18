@@ -13,7 +13,8 @@ from ..models.pokemon_model import PokemonData
 class ValidationUtils:
     """Utilities for validating Pokemon command inputs and states"""
     
-    VALID_BALL_TYPES = ["normal", "master"]
+    # Valid ball types for catching Pokemon
+    VALID_BALL_TYPES = ["poke", "great", "ultra", "master", "normal", "pokeball", "great_ball", "ultra_ball", "master_ball"]
     
     @staticmethod
     def validate_ball_type(ball_type: str) -> Tuple[bool, Optional[str]]:
