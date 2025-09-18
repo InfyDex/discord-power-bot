@@ -71,7 +71,8 @@ class WildSpawnManager:
             "pokemon": pokemon.to_dict(),
             "spawn_time": datetime.now().isoformat(),
             "caught_by": None,
-            "channel_id": channel_id
+            "channel_id": channel_id,
+            "attempted_catches": {}  # Fresh attempts for new Pokemon spawn
         }
         self.spawn_data.last_spawn = datetime.now().isoformat()
         self.save_spawn_data()
@@ -83,6 +84,27 @@ class WildSpawnManager:
                 "user_id": user_id,
                 "username": username,
                 "caught_time": datetime.now().isoformat()
+            }
+            self.save_spawn_data()
+    
+    def has_user_attempted_catch(self, user_id: str) -> bool:
+        """Check if user has already attempted to catch the current wild Pokemon"""
+        if not self.spawn_data.current_wild:
+            return False
+        
+        attempted_catches = self.spawn_data.current_wild.get("attempted_catches", {})
+        return user_id in attempted_catches
+    
+    def record_catch_attempt(self, user_id: str, username: str, success: bool):
+        """Record a catch attempt by a user"""
+        if self.spawn_data.current_wild:
+            if "attempted_catches" not in self.spawn_data.current_wild:
+                self.spawn_data.current_wild["attempted_catches"] = {}
+            
+            self.spawn_data.current_wild["attempted_catches"][user_id] = {
+                "username": username,
+                "attempt_time": datetime.now().isoformat(),
+                "success": success
             }
             self.save_spawn_data()
     

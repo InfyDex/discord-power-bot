@@ -62,19 +62,23 @@ Catch, collect, and manage your Pokemon in this engaging mini-game! The system f
 #### 🌿 Basic Pokemon Commands
 
 **Encounter Pokemon:**
-- `!encounter` - Encounter a wild Pokemon (5-minute cooldown)
+- `/encounter` - Encounter a wild Pokemon (5-minute cooldown)
+- `!encounter` - Encounter a wild Pokemon (prefix command)
 - `!wild` - Encounter a wild Pokemon (alias)
 - `!pokemon` - Encounter a wild Pokemon (alias)
 
 **Catch Pokemon:**
+- `/catch [ball_type]` - Attempt to catch your currently encountered Pokemon (with dropdown)
 - `!catch [ball_type]` - Attempt to catch your currently encountered Pokemon
   - `!catch normal` - Use a normal Pokeball (default)
   - `!catch master` - Use a Master Ball (100% catch rate)
 
 **Wild Pokemon Events:**
-- `!wild_catch` - Attempt to catch the current wild Pokemon in #pokemon channel
+- `/wild_catch` - Attempt to catch the current wild Pokemon in #pokemon channel
+- `!wild_catch` - Attempt to catch the current wild Pokemon (prefix command)
 - `!wcatch` - Attempt to catch wild Pokemon (alias)
-- `!wild_status` - Check the status of wild Pokemon spawning
+- `/wild_status` - Check the status of wild Pokemon spawning
+- `!wild_status` - Check wild spawn status (prefix command)
 - `!wstatus` - Check wild spawn status (alias)
 
 ---
@@ -82,26 +86,30 @@ Catch, collect, and manage your Pokemon in this engaging mini-game! The system f
 #### 📖 Collection Commands
 
 **View Collections:**
+- `/collection [user]` - View your Pokemon collection or another user's (with user picker)
 - `!pokemon_list [user]` - View your Pokemon collection or another user's
 - `!pokedex [user]` - View Pokemon collection (alias)
 - `!collection [user]` - View Pokemon collection (alias)
 
 **Statistics & Information:**
-- `!pokemon_stats` - View your Pokemon game statistics
+- `/pokemon_stats` - View your Pokemon game statistics
+- `!pokemon_stats` - View your Pokemon game statistics (prefix command)
 - `!stats` - View your statistics (alias)
-- `!inventory` - View your Pokemon inventory and items
+- `/inventory` - View your Pokemon inventory and items
+- `!inventory` - View your Pokemon inventory (prefix command)
 - `!inv` - View inventory (alias)
 - `!bag` - View inventory (alias)
 
 **Pokemon Details:**
+- `/pokemon_info <pokemon_identifier>` - View detailed info about a specific Pokemon (with autocomplete)
 - `!pokemon_info <name/id>` - View detailed info about a specific Pokemon in your collection
 - `!pinfo <name/id>` - View Pokemon details (alias)
 - `!pokemon_detail <name/id>` - View Pokemon details (alias)
 
 **Examples:**
-- `!pokemon_info Pikachu` - View your Pikachu's details
-- `!pinfo #5` - View details of Pokemon #5 in your collection
-- `!collection @username` - View another user's collection
+- `/pokemon_info Pikachu` or `!pokemon_info Pikachu` - View your Pikachu's details
+- `/pokemon_info #5` or `!pinfo #5` - View details of Pokemon #5 in your collection
+- `/collection @username` or `!collection @username` - View another user's collection
 
 ---
 
@@ -109,30 +117,40 @@ Catch, collect, and manage your Pokemon in this engaging mini-game! The system f
 *These commands require admin permissions*
 
 **Database Management:**
-- `!pokemon_admin` - View Pokemon database statistics and management panel
+- `/pokemon_admin` - View Pokemon database statistics and management panel
+- `!pokemon_admin` - View Pokemon database (prefix command)
 - `!padmin` - Admin panel (alias)
 
 **Player Management:**
+- `/give_pokeball <user> <ball_type> <count>` - Give pokeballs to a user (with dropdowns)
 - `!give_pokeball <user> <ball_type> <count>` - Give pokeballs to a user
 - `!give_ball <user> <ball_type> <count>` - Give pokeballs (alias)
 - `!pokeball_admin <user> <ball_type> <count>` - Give pokeballs (alias)
 
 **Wild Spawn Control:**
-- `!force_wild_spawn` - Manually trigger a wild Pokemon spawn
+- `/force_wild_spawn` - Manually trigger a wild Pokemon spawn
+- `!force_wild_spawn` - Manually trigger a wild Pokemon spawn (prefix command)
 - `!fws` - Force wild spawn (alias)
 
 **Debug & Troubleshooting:**
-- `!debug_channels` - Check available channels and bot permissions
+- `/debug_channels` - Check available channels and bot permissions
+- `!debug_channels` - Check available channels (prefix command)
 - `!dchannels` - Debug channels (alias)
 
 **Admin Examples:**
-- `!give_pokeball @username normal 10` - Give 10 normal pokeballs
-- `!give_pokeball @username master 1` - Give 1 master ball
-- `!force_wild_spawn` - Trigger immediate wild spawn
+- `/give_pokeball @username normal 10` or `!give_pokeball @username normal 10` - Give 10 normal pokeballs
+- `/give_pokeball @username master 1` or `!give_pokeball @username master 1` - Give 1 master ball
+- `/force_wild_spawn` or `!force_wild_spawn` - Trigger immediate wild spawn
 
 ---
 
 #### 🎮 Game Features
+
+**Modern Command Support:**
+- **Slash Commands:** Full support with autocomplete, dropdowns, and parameter hints
+- **Prefix Commands:** Traditional `!command` support with all aliases maintained
+- **Interactive Elements:** Ball type dropdowns, user pickers, and intelligent autocomplete
+- **Backward Compatibility:** All existing prefix commands continue to work
 
 **Starting Inventory:**
 - All new players begin with 5 normal Pokeballs
@@ -195,34 +213,50 @@ Catch, collect, and manage your Pokemon in this engaging mini-game! The system f
 
 **Basic Gameplay:**
 ```
-!encounter          # Find a wild Pokemon
-!catch normal       # Catch with normal Pokeball
-!catch master       # Catch with Master Ball (100% rate)
-!collection         # View your Pokemon collection
-!stats              # Check your statistics
+/encounter            # Find a wild Pokemon (slash command)
+!encounter            # Find a wild Pokemon (prefix command)
+/catch normal         # Catch with normal Pokeball (with dropdown)
+!catch normal         # Catch with normal Pokeball (prefix)
+/catch master         # Catch with Master Ball (100% rate)
+!catch master         # Catch with Master Ball (prefix)
+/collection           # View your Pokemon collection
+!collection           # View your collection (prefix)
+/pokemon_stats        # Check your statistics
+!stats                # Check your statistics (prefix)
 ```
 
 **Wild Pokemon Events:**
 ```
-!wild_status        # Check if wild Pokemon is available
-!wild_catch         # Attempt to catch wild Pokemon (in #pokemon channel)
+/wild_status          # Check if wild Pokemon is available
+!wild_status          # Check wild status (prefix command)
+/wild_catch           # Attempt to catch wild Pokemon (in #pokemon channel)
+!wild_catch           # Attempt to catch wild Pokemon (prefix)
 ```
 
 **Collection Management:**
 ```
-!inventory          # View your items and collection summary
-!pokemon_info Charizard    # View your Charizard's details
-!pinfo #1           # View details of Pokemon #1 in collection
-!collection @friend # View a friend's collection
+/inventory            # View your items and collection summary
+!inventory            # View inventory (prefix command)
+/pokemon_info Charizard    # View your Charizard's details (with autocomplete)
+!pokemon_info Charizard   # View Charizard details (prefix)
+/pokemon_info #1      # View details of Pokemon #1 in collection
+!pinfo #1             # View Pokemon #1 details (prefix alias)
+/collection @friend   # View a friend's collection (with user picker)
+!collection @friend   # View friend's collection (prefix)
 ```
 
 **Admin Operations:**
 ```
-!pokemon_admin              # View database statistics
-!give_pokeball @user normal 5    # Give 5 normal balls
-!give_pokeball @user master 1    # Give 1 master ball
-!force_wild_spawn          # Trigger immediate wild spawn
-!debug_channels            # Debug channel permissions
+/pokemon_admin              # View database statistics
+!pokemon_admin              # View database stats (prefix)
+/give_pokeball @user normal 5    # Give 5 normal balls (with dropdowns)
+!give_pokeball @user normal 5    # Give 5 normal balls (prefix)
+/give_pokeball @user master 1    # Give 1 master ball
+!give_pokeball @user master 1    # Give 1 master ball (prefix)
+/force_wild_spawn          # Trigger immediate wild spawn
+!force_wild_spawn          # Trigger wild spawn (prefix)
+/debug_channels            # Debug channel permissions
+!debug_channels            # Debug channels (prefix)
 ```
 
 ---
@@ -354,8 +388,8 @@ This document will be updated whenever new commands are added to the bot. Check 
 | Category | Slash Commands | Prefix Commands |
 |----------|---------------|-----------------|
 | **Games** | `/flip`, `/roll` | `!flip`, `!coin`, `!roll`, `!dice`, `!r` |
-| **Pokemon** | - | `!encounter`, `!catch`, `!wild_catch`, `!collection`, `!stats`, `!inventory`, `!pokemon_info` |
-| **Pokemon Admin** | - | `!pokemon_admin`, `!give_pokeball`, `!force_wild_spawn`, `!debug_channels` |
+| **Pokemon** | `/encounter`, `/catch`, `/wild_catch`, `/collection`, `/pokemon_stats`, `/inventory`, `/pokemon_info` | `!encounter`, `!catch`, `!wild_catch`, `!collection`, `!stats`, `!inventory`, `!pokemon_info` |
+| **Pokemon Admin** | `/pokemon_admin`, `/give_pokeball`, `/force_wild_spawn`, `/debug_channels` | `!pokemon_admin`, `!give_pokeball`, `!force_wild_spawn`, `!debug_channels` |
 | **Greetings** | - | `!greet`, `!greetings` |
 | **Utilities** | - | `!info`, `!ping`, `!uptime` |
 | **Admin** | - | `!reload` |

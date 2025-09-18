@@ -94,8 +94,21 @@ class BasicPokemonCommands:
         
         ball_type = ball_type.lower()
         
-        # Check if player has the specified pokeball type
-        if not player.inventory.has_pokeball(ball_type):
+        # Attempt to catch the Pokemon
+        pokemon = player.current_encounter
+        success, reason = player.catch_pokemon(ball_type)
+        self.player_db.save_player(user_id)
+        
+        # Handle different outcomes
+        if reason == "already_attempted":
+            embed = discord.Embed(
+                title="❌ Already Attempted",
+                description="You have already attempted to catch this Pokemon! Use `!encounter` to find a new Pokemon.",
+                color=discord.Color.red()
+            )
+            await ctx.send(embed=embed)
+            return
+        elif reason == "no_pokeball":
             ball_name = "Normal Pokeballs" if ball_type == "normal" else "Master Balls"
             embed = discord.Embed(
                 title="❌ No Pokeballs",
@@ -104,11 +117,6 @@ class BasicPokemonCommands:
             )
             await ctx.send(embed=embed)
             return
-        
-        # Attempt to catch the Pokemon
-        pokemon = player.current_encounter
-        success = player.catch_pokemon(ball_type)
-        self.player_db.save_player(user_id)
         
         if success:
             # Create success embed
@@ -149,6 +157,16 @@ class BasicPokemonCommands:
         user_id = str(ctx.author.id)
         player = self.player_db.get_player(user_id)
         
+        # Check if user has already attempted to catch this wild Pokemon
+        if self.wild_spawn.has_user_attempted_catch(user_id):
+            embed = discord.Embed(
+                title="❌ Already Attempted",
+                description="You have already attempted to catch this wild Pokemon! You can only try once per wild spawn.",
+                color=discord.Color.red()
+            )
+            await ctx.send(embed=embed)
+            return
+        
         # Check if there's a current wild Pokemon
         if not self.wild_spawn.is_wild_pokemon_available():
             embed = discord.Embed(
@@ -183,6 +201,9 @@ class BasicPokemonCommands:
         # Attempt to catch
         success = player.catch_wild_pokemon(wild_pokemon)
         self.player_db.save_player(user_id)
+        
+        # Record the catch attempt
+        self.wild_spawn.record_catch_attempt(user_id, ctx.author.display_name, success)
         
         if success:
             # Mark as caught in wild spawn system

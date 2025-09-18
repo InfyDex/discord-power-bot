@@ -103,6 +103,7 @@ class PlayerData:
         self.stats = PlayerStats(data.get("stats", {}))
         self.last_encounter = data.get("last_encounter")
         self.current_encounter: Optional[PokemonData] = None
+        self.encounter_catch_attempted: bool = False  # Track if user attempted to catch current encounter
         
         # Load caught Pokemon
         if "pokemon" in data:
@@ -114,6 +115,9 @@ class PlayerData:
         if "current_encounter" in data and data["current_encounter"]:
             encounter_data = data["current_encounter"]
             self.current_encounter = PokemonData.from_dict(0, encounter_data)
+            self.encounter_catch_attempted = data.get("encounter_catch_attempted", False)
+        else:
+            self.encounter_catch_attempted = False
     
     def _get_default_data(self) -> Dict[str, Any]:
         """Get default player data for new players"""
@@ -152,16 +156,24 @@ class PlayerData:
     def add_encounter(self, pokemon: PokemonData):
         """Set current encounter and update stats"""
         self.current_encounter = pokemon
+        self.encounter_catch_attempted = False  # Reset attempt flag for new encounter
         self.last_encounter = datetime.now().isoformat()
         self.stats.add_encounter()
     
-    def catch_pokemon(self, ball_type: str) -> bool:
-        """Attempt to catch the current encounter"""
+    def catch_pokemon(self, ball_type: str) -> tuple[bool, str]:
+        """Attempt to catch the current encounter. Returns (success, error_reason)"""
         if not self.current_encounter:
-            return False
+            return False, "no_encounter"
+        
+        # Check if already attempted to catch this encounter
+        if self.encounter_catch_attempted:
+            return False, "already_attempted"
         
         if not self.inventory.use_pokeball(ball_type):
-            return False
+            return False, "no_pokeball"
+        
+        # Mark that we've attempted to catch this encounter
+        self.encounter_catch_attempted = True
         
         # Calculate catch success
         catch_rate = 1.0 if ball_type == "master" else self.current_encounter.catch_rate
@@ -181,8 +193,10 @@ class PlayerData:
             self.pokemon_collection.append(caught_pokemon)
             self.stats.add_catch()
             self.current_encounter = None  # Clear encounter
+            self.encounter_catch_attempted = False  # Reset flag when encounter is cleared
+            return True, "success"
         
-        return success
+        return False, "escaped"
     
     def catch_wild_pokemon(self, pokemon: PokemonData) -> bool:
         """Catch a wild Pokemon (different from personal encounters)"""
@@ -234,7 +248,8 @@ class PlayerData:
             "pokemon": pokemon_list,
             "pokeballs": self.inventory.to_dict(),
             "last_encounter": self.last_encounter,
-            "stats": self.stats.to_dict()
+            "stats": self.stats.to_dict(),
+            "encounter_catch_attempted": self.encounter_catch_attempted
         }
         
         # Include current encounter if exists
