@@ -179,11 +179,12 @@ class Pokemon(commands.Cog):
         # For now, create a quick ctx-like object for admin commands
         # TODO: Refactor admin commands to use unified context
         class QuickCtx:
-            def __init__(self, interaction):
+            def __init__(self, interaction, bot):
                 self.author = interaction.user
                 self.send = interaction.response.send_message
+                self.bot = bot
         
-        quick_ctx = QuickCtx(interaction)
+        quick_ctx = QuickCtx(interaction, self.bot)
         await self.admin_commands.pokemon_admin(quick_ctx)
     
     @app_commands.command(name="give_pokeball", description="Give pokeballs to a user (Admin only)")
@@ -200,11 +201,12 @@ class Pokemon(commands.Cog):
         """Admin command to give pokeballs to a user (slash command)"""
         # For now, create a quick ctx-like object for admin commands
         class QuickCtx:
-            def __init__(self, interaction):
+            def __init__(self, interaction, bot):
                 self.author = interaction.user
                 self.send = interaction.response.send_message
+                self.bot = bot
         
-        quick_ctx = QuickCtx(interaction)
+        quick_ctx = QuickCtx(interaction, self.bot)
         await self.admin_commands.give_pokeball(quick_ctx, user, ball_type, count)
     
     @app_commands.command(name="force_wild_spawn", description="Manually trigger a wild Pokemon spawn (Admin only)")
@@ -212,11 +214,12 @@ class Pokemon(commands.Cog):
         """Admin command to manually trigger a wild Pokemon spawn (slash command)"""
         # For now, create a quick ctx-like object for admin commands
         class QuickCtx:
-            def __init__(self, interaction):
+            def __init__(self, interaction, bot):
                 self.author = interaction.user
                 self.send = interaction.response.send_message
+                self.bot = bot
         
-        quick_ctx = QuickCtx(interaction)
+        quick_ctx = QuickCtx(interaction, self.bot)
         await self.admin_commands.force_wild_spawn(quick_ctx)
     
     @app_commands.command(name="debug_channels", description="Check available channels and bot permissions (Admin only)")
@@ -224,11 +227,12 @@ class Pokemon(commands.Cog):
         """Debug command to check available channels and bot permissions (slash command)"""
         # For now, create a quick ctx-like object for admin commands
         class QuickCtx:
-            def __init__(self, interaction):
+            def __init__(self, interaction, bot):
                 self.author = interaction.user
                 self.send = interaction.response.send_message
+                self.bot = bot
         
-        quick_ctx = QuickCtx(interaction)
+        quick_ctx = QuickCtx(interaction, self.bot)
         await self.admin_commands.debug_channels(quick_ctx)
 
 

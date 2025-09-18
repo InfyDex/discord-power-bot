@@ -27,6 +27,11 @@ class UnifiedContext:
         return self._original.channel
     
     @property
+    def bot(self):
+        """Get the bot instance"""
+        return self._original.client if self._is_interaction else self._original.bot
+    
+    @property
     def is_interaction(self):
         """Check if this is an interaction (slash command)"""
         return self._is_interaction
