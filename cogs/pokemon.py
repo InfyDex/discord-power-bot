@@ -136,21 +136,13 @@ class Pokemon(commands.Cog):
         await self.leaderboard_commands.leaderboard_rarity(ctx)
     
     @commands.command(name='leaderboard_rank', aliases=['lb_rank', 'rank'])
-    async def leaderboard_rank(self, ctx, leaderboard_type: str, target_user: discord.Member = None):
-        """Check individual rank in specified leaderboard (pokemon/power/rarity)"""
-        valid_types = ['pokemon', 'power', 'rarity']
-        if leaderboard_type.lower() not in valid_types:
-            await ctx.send(f"Invalid leaderboard type. Use one of: {', '.join(valid_types)}")
-            return
+    async def leaderboard_rank(self, ctx, target_user: discord.Member = None):
+        """Check individual rank in all leaderboards"""
+        if target_user is None:
+            target_user = ctx.author
         
-        type_mapping = {
-            'pokemon': 'pokemon_count',
-            'power': 'total_power', 
-            'rarity': 'rarity_score'
-        }
-        
-        mapped_type = type_mapping[leaderboard_type.lower()]
-        await self.leaderboard_commands.leaderboard_rank(ctx, mapped_type, target_user)
+        # Show ranks in all leaderboard types
+        await self.leaderboard_commands.leaderboard_rank_all(ctx, target_user)
 
     # Slash Commands
     @app_commands.command(name="collection", description="View your Pokemon collection or another user's collection")
@@ -291,24 +283,15 @@ class Pokemon(commands.Cog):
         unified_ctx = create_unified_context(interaction)
         await self.leaderboard_commands._leaderboard_rarity_logic(unified_ctx)
     
-    @app_commands.command(name="leaderboard_rank", description="Check individual rank in specified leaderboard")
-    @app_commands.describe(
-        leaderboard_type="Type of leaderboard to check rank in",
-        user="User to check rank for (defaults to yourself)"
-    )
-    @app_commands.choices(leaderboard_type=[
-        app_commands.Choice(name="Pokemon Collection", value="pokemon_count"),
-        app_commands.Choice(name="Total Power", value="total_power"),
-        app_commands.Choice(name="Rarity Score", value="rarity_score")
-    ])
-    async def slash_leaderboard_rank(self, interaction: discord.Interaction, 
-                                   leaderboard_type: str, user: discord.Member = None):
-        """Individual rank lookup (slash command)"""
+    @app_commands.command(name="leaderboard_rank", description="Check individual rank in all leaderboards")
+    @app_commands.describe(user="User to check rank for (defaults to yourself)")
+    async def slash_leaderboard_rank(self, interaction: discord.Interaction, user: discord.Member = None):
+        """Individual rank lookup showing all leaderboard types (slash command)"""
         from .pokemon_system.utils.interaction_utils import create_unified_context
         if user is None:
             user = interaction.user
         unified_ctx = create_unified_context(interaction)
-        await self.leaderboard_commands._leaderboard_rank_logic(unified_ctx, leaderboard_type, user)
+        await self.leaderboard_commands._leaderboard_rank_all_logic(unified_ctx, user)
 
 
 async def setup(bot):

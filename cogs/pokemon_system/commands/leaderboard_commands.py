@@ -63,20 +63,26 @@ class LeaderboardCommands:
             pokemon_name = pokemon.get('name', '')
             if pokemon_name in pokemon_db:
                 pokemon_info = pokemon_db[pokemon_name]
-                # Legendary Pokemon worth 100 points
-                if pokemon_info.get('legendary', False):
+                rarity = pokemon_info.get('rarity', '').lower()
+                
+                # Score based on rarity field
+                if rarity == 'legendary':
                     rarity_score += 100
-                # Mythical Pokemon worth 150 points
-                elif pokemon_info.get('mythical', False):
+                elif rarity == 'mythical':
                     rarity_score += 150
-                # Base stats above 600 worth extra points (pseudo-legendary)
-                else:
-                    stats = pokemon_info.get('stats', {})
-                    total_stats = sum(stats.values()) if stats else 0
-                    if total_stats >= 600:
-                        rarity_score += 50
-                    elif total_stats >= 500:
-                        rarity_score += 25
+                elif rarity == 'ultra rare':
+                    rarity_score += 75
+                elif rarity == 'rare':
+                    rarity_score += 50
+                elif rarity == 'uncommon':
+                    rarity_score += 25
+                # Common gets 0 points
+                
+                # Additional points for high base stats (pseudo-legendary check)
+                stats = pokemon_info.get('stats', {})
+                total_stats = stats.get('total', 0) or sum(stats.values()) if stats else 0
+                if total_stats >= 600:
+                    rarity_score += 25  # Bonus for pseudo-legendary stats
         return rarity_score
     
     async def _get_leaderboard_data(self, leaderboard_type: str) -> List[Tuple[str, int, str]]:
@@ -287,7 +293,7 @@ class LeaderboardCommands:
         embed = self._create_leaderboard_embed(
             leaderboard_data,
             "Rarity Score Leaderboard",
-            "Top 10 players by rarity score (Legendary=100pts, Mythical=150pts, Pseudo-Legendary=50pts)"
+            "Top 10 players by rarity score (Mythical=150pts, Legendary=100pts, Ultra Rare=75pts, Rare=50pts, Uncommon=25pts)"
         )
         await unified_ctx.send(embed=embed)
     
@@ -319,3 +325,97 @@ class LeaderboardCommands:
             target_user = ctx.author
         unified_ctx = create_unified_context(ctx)
         await self._leaderboard_rank_logic(unified_ctx, leaderboard_type, target_user)
+    
+    async def leaderboard_rank_all(self, ctx, target_user: discord.Member = None):
+        """Show ranks in all leaderboards (prefix command)"""
+        if target_user is None:
+            target_user = ctx.author
+        unified_ctx = create_unified_context(ctx)
+        await self._leaderboard_rank_all_logic(unified_ctx, target_user)
+    
+    # Shared logic for showing all ranks
+    async def _leaderboard_rank_all_logic(self, unified_ctx, target_user: discord.Member):
+        """Shared logic for showing all ranks at once"""
+        # Get ranks for all leaderboard types
+        pokemon_rank, pokemon_score, _ = self._get_user_rank(str(target_user.id), "pokemon_count")
+        power_rank, power_score, _ = self._get_user_rank(str(target_user.id), "total_power")
+        rarity_rank, rarity_score, _ = self._get_user_rank(str(target_user.id), "rarity_score")
+        
+        # Create comprehensive rank embed
+        embed = discord.Embed(
+            title=f"📊 {target_user.display_name}'s Rankings",
+            description="Complete ranking across all leaderboards",
+            color=discord.Color.blue()
+        )
+        
+        # Pokemon Collection Ranking
+        if pokemon_rank > 0:
+            if pokemon_rank == 1:
+                rank_display = "🥇 #1"
+            elif pokemon_rank == 2:
+                rank_display = "🥈 #2"
+            elif pokemon_rank == 3:
+                rank_display = "🥉 #3"
+            else:
+                rank_display = f"#{pokemon_rank}"
+            
+            embed.add_field(
+                name="🏆 Pokemon Collection",
+                value=f"**Rank:** {rank_display}\n**Pokemon:** {pokemon_score:,}",
+                inline=True
+            )
+        else:
+            embed.add_field(
+                name="🏆 Pokemon Collection",
+                value="**Rank:** Not ranked\n**Pokemon:** 0",
+                inline=True
+            )
+        
+        # Total Power Ranking
+        if power_rank > 0:
+            if power_rank == 1:
+                rank_display = "🥇 #1"
+            elif power_rank == 2:
+                rank_display = "🥈 #2"
+            elif power_rank == 3:
+                rank_display = "🥉 #3"
+            else:
+                rank_display = f"#{power_rank}"
+            
+            embed.add_field(
+                name="⚡ Total Power",
+                value=f"**Rank:** {rank_display}\n**Power:** {power_score:,}",
+                inline=True
+            )
+        else:
+            embed.add_field(
+                name="⚡ Total Power",
+                value="**Rank:** Not ranked\n**Power:** 0",
+                inline=True
+            )
+        
+        # Rarity Score Ranking
+        if rarity_rank > 0:
+            if rarity_rank == 1:
+                rank_display = "🥇 #1"
+            elif rarity_rank == 2:
+                rank_display = "🥈 #2"
+            elif rarity_rank == 3:
+                rank_display = "🥉 #3"
+            else:
+                rank_display = f"#{rarity_rank}"
+            
+            embed.add_field(
+                name="💎 Rarity Score",
+                value=f"**Rank:** {rank_display}\n**Score:** {rarity_score:,}",
+                inline=True
+            )
+        else:
+            embed.add_field(
+                name="💎 Rarity Score",
+                value="**Rank:** Not ranked\n**Score:** 0",
+                inline=True
+            )
+        
+        embed.set_footer(text="Use specific leaderboard commands to see top 10 rankings!")
+        await unified_ctx.send(embed=embed)
