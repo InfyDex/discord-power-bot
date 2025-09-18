@@ -28,7 +28,9 @@ class BasicPokemonCommands:
     def _log_catch_attempt(self, user, catch_details):
         """Log detailed catch attempt information"""
         details = catch_details
-        user_info = f"{user.display_name} ({user.id})"
+        # Sanitize display name to ASCII-only characters to avoid encoding issues
+        safe_display_name = user.display_name.encode('ascii', 'replace').decode('ascii')
+        user_info = f"{safe_display_name} ({user.id})"
         
         # Log basic catch attempt
         self.logger.info(f"CATCH ATTEMPT - User: {user_info}")
