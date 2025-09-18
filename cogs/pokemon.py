@@ -62,6 +62,11 @@ class Pokemon(commands.Cog):
         """Check the status of wild Pokemon spawning"""
         await self.basic_commands.wild_status(ctx)
     
+    @commands.command(name='daily_claim', aliases=['daily', 'claim'])
+    async def daily_claim(self, ctx):
+        """Claim your daily PokéCoin bonus (100 coins every 24 hours)"""
+        await self.basic_commands.daily_claim(ctx)
+    
     # Slash Commands
     @app_commands.command(name="encounter", description="Encounter a wild Pokemon (5-minute cooldown)")
     async def slash_encounter_pokemon(self, interaction: discord.Interaction):
@@ -95,6 +100,13 @@ class Pokemon(commands.Cog):
         from .pokemon_system.utils.interaction_utils import create_unified_context
         unified_ctx = create_unified_context(interaction)
         await self.basic_commands._wild_status_logic(unified_ctx)
+    
+    @app_commands.command(name="daily_claim", description="Claim your daily PokéCoin bonus (100 coins every 24 hours)")
+    async def slash_daily_claim(self, interaction: discord.Interaction):
+        """Claim your daily PokéCoin bonus (slash command)"""
+        from .pokemon_system.utils.interaction_utils import create_unified_context
+        unified_ctx = create_unified_context(interaction)
+        await self.basic_commands._daily_claim_logic(unified_ctx)
     
     # ===== COLLECTION COMMANDS =====
     
@@ -188,6 +200,11 @@ class Pokemon(commands.Cog):
         """Admin command to give pokeballs to a user"""
         await self.admin_commands.give_pokeball(ctx, user, ball_type, count)
     
+    @commands.command(name='give_pokecoins', aliases=['give_coins', 'coins_admin'])
+    async def give_pokecoins(self, ctx, user: discord.Member, amount: int):
+        """Admin command to give PokéCoins to a user"""
+        await self.admin_commands.give_pokecoins(ctx, user, amount)
+    
     @commands.command(name='force_wild_spawn', aliases=['fws'])
     async def force_wild_spawn(self, ctx):
         """Admin command to manually trigger a wild Pokemon spawn"""
@@ -234,6 +251,23 @@ class Pokemon(commands.Cog):
         
         quick_ctx = QuickCtx(interaction, self.bot)
         await self.admin_commands.give_pokeball(quick_ctx, user, ball_type, count)
+    
+    @app_commands.command(name="give_pokecoins", description="Give PokéCoins to a user (Admin only)")
+    @app_commands.describe(
+        user="User to give PokéCoins to",
+        amount="Amount of PokéCoins to give"
+    )
+    async def slash_give_pokecoins(self, interaction: discord.Interaction, user: discord.Member, amount: int):
+        """Admin command to give PokéCoins to a user (slash command)"""
+        # For now, create a quick ctx-like object for admin commands
+        class QuickCtx:
+            def __init__(self, interaction, bot):
+                self.author = interaction.user
+                self.send = interaction.response.send_message
+                self.bot = bot
+        
+        quick_ctx = QuickCtx(interaction, self.bot)
+        await self.admin_commands.give_pokecoins(quick_ctx, user, amount)
     
     @app_commands.command(name="force_wild_spawn", description="Manually trigger a wild Pokemon spawn (Admin only)")
     async def slash_force_wild_spawn(self, interaction: discord.Interaction):

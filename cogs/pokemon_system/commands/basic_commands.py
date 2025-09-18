@@ -349,6 +349,78 @@ class BasicPokemonCommands:
         await unified_ctx.send(embed=embed)
         return True
     
+    async def _daily_claim_logic(self, unified_ctx: UnifiedContext) -> bool:
+        """
+        Shared logic for both prefix and slash daily claim commands
+        Returns True if successful, False if failed
+        """
+        user_id = str(unified_ctx.author.id)
+        player = self.player_db.get_player(user_id)
+        
+        # Check if daily claim is available
+        if not player.can_claim_daily_bonus():
+            cooldown_time = player.get_daily_claim_cooldown_remaining()
+            
+            embed = discord.Embed(
+                title="🕒 Daily Bonus Already Claimed",
+                description="You've already claimed your daily bonus!\n\n"
+                           f"**Next claim available in:** {cooldown_time if cooldown_time else 'Soon'}",
+                color=discord.Color.orange()
+            )
+            embed.add_field(
+                name="💰 Current Balance", 
+                value=f"{player.pokecoins:,} PokéCoins", 
+                inline=True
+            )
+            await unified_ctx.send_error(embed)
+            return False
+        
+        # Claim daily bonus
+        success, coins_received = player.claim_daily_bonus()
+        self.player_db.save_player(user_id)
+        
+        if success:
+            embed = discord.Embed(
+                title="🎁 Daily Bonus Claimed!",
+                description=f"**Congratulations {unified_ctx.author.mention}!**\n\n"
+                           f"You've claimed your daily bonus of **{coins_received:,} PokéCoins**!",
+                color=discord.Color.gold()
+            )
+            
+            embed.add_field(
+                name="💰 Balance Update",
+                value=f"**Received:** +{coins_received:,} PokéCoins\n"
+                      f"**New Balance:** {player.pokecoins:,} PokéCoins",
+                inline=False
+            )
+            
+            embed.add_field(
+                name="🔄 Next Claim",
+                value="Available in 24 hours",
+                inline=True
+            )
+            
+            embed.add_field(
+                name="💡 Tip",
+                value="Use PokéCoins to buy items and upgrades!",
+                inline=True
+            )
+            
+            embed.set_thumbnail(url=unified_ctx.author.display_avatar.url)
+            embed.set_footer(text=f"Daily bonus claimed by {unified_ctx.author.display_name}")
+            
+            await unified_ctx.send(embed=embed)
+            return True
+        
+        # Should not reach here, but handle just in case
+        embed = discord.Embed(
+            title="❌ Claim Failed",
+            description="Failed to claim daily bonus. Please try again later.",
+            color=discord.Color.red()
+        )
+        await unified_ctx.send_error(embed)
+        return False
+    
     # ========== LEGACY PREFIX COMMANDS ==========
     
     async def encounter_pokemon(self, ctx) -> bool:
@@ -370,3 +442,8 @@ class BasicPokemonCommands:
         """Check the status of wild Pokemon spawning (legacy prefix command)"""
         unified_ctx = create_unified_context(ctx)
         return await self._wild_status_logic(unified_ctx)
+    
+    async def daily_claim(self, ctx) -> bool:
+        """Claim daily PokéCoin bonus (legacy prefix command)"""
+        unified_ctx = create_unified_context(ctx)
+        return await self._daily_claim_logic(unified_ctx)

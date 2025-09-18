@@ -166,6 +166,59 @@ class AdminPokemonCommands:
         
         await ctx.send(embed=embed)
     
+    async def give_pokecoins(self, ctx, user: discord.Member, amount: int):
+        """Admin command to give PokéCoins to a user"""
+        if not Config.is_admin(ctx.author.id):
+            embed = discord.Embed(
+                title="❌ Access Denied",
+                description="You don't have permission to use admin commands.",
+                color=discord.Color.red()
+            )
+            await ctx.send(embed=embed)
+            return
+        
+        # Validate amount
+        if amount <= 0:
+            embed = discord.Embed(
+                title="❌ Invalid Amount",
+                description="Amount must be a positive number.",
+                color=discord.Color.red()
+            )
+            await ctx.send(embed=embed)
+            return
+        
+        # Get player and add PokéCoins
+        user_id = str(user.id)
+        player = self.player_db.get_player(user_id)
+        
+        old_balance = player.pokecoins
+        new_balance = player.add_pokecoins(amount)
+        self.player_db.save_player(user_id)
+        
+        # Create confirmation embed
+        embed = discord.Embed(
+            title="💰 PokéCoins Given",
+            description=f"Successfully gave {amount:,} PokéCoins to {user.mention}!",
+            color=discord.Color.gold()
+        )
+        
+        embed.add_field(
+            name="💳 Balance Update",
+            value=f"**Previous:** {old_balance:,} PokéCoins\n**Added:** +{amount:,} PokéCoins\n**New Balance:** {new_balance:,} PokéCoins",
+            inline=False
+        )
+        
+        embed.add_field(
+            name="📋 Action Details",
+            value=f"**Given:** {amount:,} PokéCoins\n**To:** {user.display_name}\n**By:** {ctx.author.display_name}",
+            inline=True
+        )
+        
+        embed.set_thumbnail(url=user.display_avatar.url)
+        embed.set_footer(text=f"Admin Action | Executed by {ctx.author.display_name}")
+        
+        await ctx.send(embed=embed)
+    
     async def force_wild_spawn(self, ctx):
         """Admin command to manually trigger a wild Pokemon spawn"""
         if not Config.is_admin(ctx.author.id):

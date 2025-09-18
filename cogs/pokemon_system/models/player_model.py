@@ -212,6 +212,10 @@ class PlayerData:
         # Catch history for hourly limits (5 catches per hour)
         self.catch_history: List[str] = data.get("catch_history", [])
         
+        # Currency system (PokéCoins)
+        self.pokecoins: int = data.get("pokecoins", 0)
+        self.last_daily_claim: Optional[str] = data.get("last_daily_claim")
+        
         # Load caught Pokemon
         if "pokemon" in data:
             for pokemon_data in data["pokemon"]:
@@ -240,6 +244,8 @@ class PlayerData:
             },
             "last_encounter": None,
             "catch_history": [],
+            "pokecoins": 100,  # New players start with 100 PokéCoins
+            "last_daily_claim": None,
             "stats": {
                 "total_caught": 0,
                 "total_encounters": 0,
@@ -390,6 +396,72 @@ class PlayerData:
                 # If any timestamp is invalid, clear entire history
                 self.catch_history = []
                 return
+    
+    # ========== CURRENCY SYSTEM ==========
+    
+    def add_pokecoins(self, amount: int) -> int:
+        """Add PokéCoins to player's balance. Returns new balance."""
+        self.pokecoins += amount
+        return self.pokecoins
+    
+    def spend_pokecoins(self, amount: int) -> bool:
+        """Spend PokéCoins if player has enough. Returns True if successful."""
+        if self.pokecoins >= amount:
+            self.pokecoins -= amount
+            return True
+        return False
+    
+    def can_claim_daily_bonus(self) -> bool:
+        """Check if player can claim daily bonus (100 PokéCoins every 24 hours)"""
+        if not self.last_daily_claim:
+            return True
+        
+        try:
+            last_claim = datetime.fromisoformat(self.last_daily_claim)
+            return datetime.now() - last_claim >= timedelta(hours=24)
+        except (ValueError, TypeError):
+            # If timestamp is invalid, allow claim
+            return True
+    
+    def claim_daily_bonus(self) -> tuple[bool, int]:
+        """
+        Claim daily bonus if available. 
+        Returns (success, coins_received)
+        """
+        if not self.can_claim_daily_bonus():
+            return False, 0
+        
+        daily_bonus = 100
+        self.add_pokecoins(daily_bonus)
+        self.last_daily_claim = datetime.now().isoformat()
+        return True, daily_bonus
+    
+    def get_daily_claim_cooldown_remaining(self) -> Optional[str]:
+        """Get time until next daily claim is available"""
+        if not self.last_daily_claim:
+            return None
+        
+        try:
+            last_claim = datetime.fromisoformat(self.last_daily_claim)
+            next_claim = last_claim + timedelta(hours=24)
+            time_left = next_claim - datetime.now()
+            
+            if time_left.total_seconds() <= 0:
+                return None
+            
+            total_seconds = max(0, round(time_left.total_seconds()))
+            hours = total_seconds // 3600
+            minutes = (total_seconds % 3600) // 60
+            
+            if hours > 0:
+                if minutes > 0:
+                    return f"{hours}h {minutes}m"
+                else:
+                    return f"{hours}h"
+            else:
+                return f"{minutes}m"
+        except (ValueError, TypeError):
+            return None
     
     def add_encounter(self, pokemon: PokemonData):
         """Set current encounter and update stats"""
@@ -542,6 +614,8 @@ class PlayerData:
             "pokeballs": self.inventory.to_dict(),
             "last_encounter": self.last_encounter,
             "catch_history": self.catch_history,
+            "pokecoins": self.pokecoins,
+            "last_daily_claim": self.last_daily_claim,
             "stats": self.stats.to_dict(),
             "encounter_catch_attempted": self.encounter_catch_attempted
         }

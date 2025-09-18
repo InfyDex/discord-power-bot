@@ -1,25 +1,3 @@
-"""
-Collection Pokemon Commands
-Handles commands related to viewing and managing Pokemon collectio        embed.add_field(name="� Pokeball Inventory", value=pokeball_text, inline=True)
-        
-        # Catch Limit Information
-        remaining_catches = player.get_remaining_catches()
-        cooldown_time = player.get_catch_cooldown_remaining()
-        
-        if remaining_catches == 5:
-            catch_limit_text = "✅ Full catch limit available (5/5)"
-        elif remaining_catches > 0:
-            catch_limit_text = f"⚠️ {remaining_catches}/5 catches remaining"
-            if cooldown_time:
-                catch_limit_text += f"\nNext reset: {cooldown_time}"
-        else:
-            catch_limit_text = "🚫 Catch limit reached (0/5)"
-            if cooldown_time:
-                catch_limit_text += f"\nNext reset: {cooldown_time}"
-        
-        embed.add_field(name="🕒 Hourly Catch Limit", value=catch_limit_text, inline=True)s.
-"""
-
 import discord
 from datetime import datetime
 from ..managers import PokemonDatabaseManager, PlayerDataManager
@@ -99,6 +77,9 @@ class CollectionPokemonCommands:
         embed.add_field(name="👁️ Total Encounters", value=f"{total_encounters}", inline=True)
         embed.add_field(name="📈 Catch Rate", value=f"{catch_rate:.1f}%", inline=True)
         
+        # Currency
+        embed.add_field(name="💰 PokéCoins", value=f"{player.pokecoins:,}", inline=True)
+        
         # Join date
         join_date = datetime.fromisoformat(player.stats.join_date).strftime("%B %d, %Y")
         embed.add_field(name="📅 Trainer Since", value=join_date, inline=True)
@@ -149,7 +130,6 @@ class CollectionPokemonCommands:
         # Enhanced Pokeball Inventory
         all_balls = player.inventory.get_all_balls()
         pokeball_text = ""
-        total_value = 0
         
         for ball_type, ball_data in all_balls.items():
             count = ball_data["count"]
@@ -157,16 +137,14 @@ class CollectionPokemonCommands:
                 # Use emoji as fallback
                 emoji = {"poke": "⚪", "great": "🔵", "ultra": "🟡", "master": "🟣"}.get(ball_type, "⚫")
                 pokeball_text += f"{emoji} {ball_data['name']}: **{count}**\n"
-                
-                # Calculate value (example values)
-                values = {"poke": 1, "great": 3, "ultra": 6, "master": 50}
-                total_value += count * values.get(ball_type, 1)
         
         if not pokeball_text:
             pokeball_text = "No pokeballs in inventory"
             
         embed.add_field(name="� Pokeball Inventory", value=pokeball_text, inline=False)
-        embed.add_field(name="💰 Total Inventory Value", value=f"{total_value} credits", inline=True)
+        
+        # Currency
+        embed.add_field(name="💰 PokéCoins", value=f"{player.pokecoins:,}", inline=True)
         
         # Stats
         total_caught = len(player.pokemon_collection)
