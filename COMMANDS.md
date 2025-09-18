@@ -83,6 +83,46 @@ Catch, collect, and manage your Pokemon in this engaging mini-game! The system f
 
 ---
 
+#### 🏆 Leaderboard Commands
+
+**Pokemon Collection Leaderboard:**
+- `/leaderboard_pokemon` - View Pokemon collection leaderboard (top 10)
+- `!leaderboard_pokemon` - View Pokemon collection leaderboard (prefix command)
+- `!lb_pokemon` - Leaderboard alias
+- `!pokemon_leaderboard` - Leaderboard alias
+
+**Total Power Leaderboard:**
+- `/leaderboard_power` - View total power leaderboard (top 10)
+- `!leaderboard_power` - View total power leaderboard (prefix command)
+- `!lb_power` - Power leaderboard alias
+- `!power_leaderboard` - Power leaderboard alias
+
+**Rarity Score Leaderboard:**
+- `/leaderboard_rarity` - View rarity score leaderboard (top 10)
+- `!leaderboard_rarity` - View rarity score leaderboard (prefix command)
+- `!lb_rarity` - Rarity leaderboard alias
+- `!rarity_leaderboard` - Rarity leaderboard alias
+
+**Individual Rankings:**
+- `/leaderboard_rank [user]` - Check individual rank in all leaderboards (with user picker)
+- `!leaderboard_rank [user]` - Check individual rank in all leaderboards
+- `!lb_rank [user]` - Rank lookup alias
+- `!rank [user]` - Rank lookup alias
+
+**Leaderboard Examples:**
+- `/leaderboard_pokemon` or `!leaderboard_pokemon` - View top 10 Pokemon collectors
+- `/leaderboard_power` or `!lb_power` - View top 10 by total power
+- `/leaderboard_rarity` or `!rarity_leaderboard` - View top 10 by rarity score
+- `/leaderboard_rank @username` or `!rank @username` - Check someone's rankings
+- `/leaderboard_rank` or `!rank` - Check your own rankings
+
+**Leaderboard Scoring:**
+- **Pokemon Count:** Total unique Pokemon caught
+- **Total Power:** Sum of Attack + Defense + HP for all Pokemon
+- **Rarity Score:** Points based on Pokemon rarity (Mythical=150pts, Legendary=100pts, Ultra Rare=75pts, Rare=50pts, Uncommon=25pts, Common=0pts)
+
+---
+
 #### 📖 Collection Commands
 
 **View Collections:**
@@ -245,6 +285,20 @@ Catch, collect, and manage your Pokemon in this engaging mini-game! The system f
 !collection @friend   # View friend's collection (prefix)
 ```
 
+**Leaderboards:**
+```
+/leaderboard_pokemon     # View top 10 Pokemon collectors
+!leaderboard_pokemon     # View Pokemon leaderboard (prefix)
+/leaderboard_power       # View top 10 by total power
+!lb_power                # View power leaderboard (prefix alias)
+/leaderboard_rarity      # View top 10 by rarity score
+!rarity_leaderboard      # View rarity leaderboard (prefix alias)
+/leaderboard_rank @user  # Check someone's rank in all leaderboards
+!rank @user              # Check user's rank (prefix alias)
+/leaderboard_rank        # Check your own rankings
+!rank                    # Check your own rankings (prefix)
+```
+
 **Admin Operations:**
 ```
 /pokemon_admin              # View database statistics
@@ -389,6 +443,7 @@ This document will be updated whenever new commands are added to the bot. Check 
 |----------|---------------|-----------------|
 | **Games** | `/flip`, `/roll` | `!flip`, `!coin`, `!roll`, `!dice`, `!r` |
 | **Pokemon** | `/encounter`, `/catch`, `/wild_catch`, `/collection`, `/pokemon_stats`, `/inventory`, `/pokemon_info` | `!encounter`, `!catch`, `!wild_catch`, `!collection`, `!stats`, `!inventory`, `!pokemon_info` |
+| **Pokemon Leaderboards** | `/leaderboard_pokemon`, `/leaderboard_power`, `/leaderboard_rarity`, `/leaderboard_rank` | `!leaderboard_pokemon`, `!leaderboard_power`, `!leaderboard_rarity`, `!leaderboard_rank`, `!lb_pokemon`, `!lb_power`, `!lb_rarity`, `!rank` |
 | **Pokemon Admin** | `/pokemon_admin`, `/give_pokeball`, `/force_wild_spawn`, `/debug_channels` | `!pokemon_admin`, `!give_pokeball`, `!force_wild_spawn`, `!debug_channels` |
 | **Greetings** | - | `!greet`, `!greetings` |
 | **Utilities** | - | `!info`, `!ping`, `!uptime` |
@@ -396,4 +451,4 @@ This document will be updated whenever new commands are added to the bot. Check 
 
 ---
 
-*Last Updated: September 18, 2025*
+*Last Updated: December 27, 2024*
