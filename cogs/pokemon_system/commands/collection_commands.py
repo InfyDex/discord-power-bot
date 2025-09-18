@@ -187,7 +187,6 @@ class CollectionPokemonCommands:
         # Create detailed Pokemon embed
         embed = PokemonEmbedUtils.create_pokemon_detail_embed(
             pokemon=found_pokemon,
-            player_name=unified_ctx.author.display_name,
             user_mention=unified_ctx.author.mention
         )
         

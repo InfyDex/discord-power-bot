@@ -231,7 +231,7 @@ class PokemonEmbedUtils:
         return embed
     
     @staticmethod
-    def create_pokemon_detail_embed(pokemon: CaughtPokemon, player_name: str, user_mention: str = None) -> discord.Embed:
+    def create_pokemon_detail_embed(pokemon: CaughtPokemon, user_mention: str = None) -> discord.Embed:
         """Create detailed embed for a specific Pokemon"""
         embed = discord.Embed(
             title=f"📋 {pokemon.name} - Details",
