@@ -10,6 +10,7 @@ import json
 import os
 from ..utils.interaction_utils import create_unified_context
 from ..models.player_model import PlayerData
+from config import Config
 
 
 class LeaderboardCommands:
@@ -19,6 +20,9 @@ class LeaderboardCommands:
         self.bot = bot
         self.data_file = os.path.join(os.path.dirname(__file__), '..', '..', '..', 'pokemon_data.json')
         self.pokemon_db_file = os.path.join(os.path.dirname(__file__), '..', '..', '..', 'pokemon_master_database.json')
+        
+        # Setup logger using Config
+        self.logger = Config.setup_logging()
     
     def _load_data(self) -> Dict:
         """Load player data from JSON file"""
@@ -27,6 +31,42 @@ class LeaderboardCommands:
                 return json.load(f)
         except (FileNotFoundError, json.JSONDecodeError):
             return {}
+    
+    async def _get_username(self, user_id: str) -> str:
+        """Get username for a user ID with proper async resolution"""
+        try:
+            user_id_int = int(user_id)
+            
+            # Method 1: Try bot cache first (fastest)
+            user = self.bot.get_user(user_id_int)
+            if user:
+                return user.display_name or user.global_name or user.name
+            
+            # Method 2: Try guild members (still fast)
+            for guild in self.bot.guilds:
+                member = guild.get_member(user_id_int)
+                if member:
+                    return member.display_name or member.global_name or member.name
+            
+            # Method 3: Fetch user from Discord API (slower but reliable)
+            try:
+                user = await self.bot.fetch_user(user_id_int)
+                if user:
+                    return user.display_name or user.global_name or user.name
+            except discord.NotFound:
+                self.logger.warning(f"User {user_id} not found on Discord")
+            except discord.HTTPException as e:
+                self.logger.warning(f"HTTP error fetching user {user_id}: {e}")
+            
+            # Final fallback - return a placeholder that indicates missing user
+            return f"Unknown User"
+            
+        except ValueError:
+            self.logger.error(f"Invalid user ID format: {user_id}")
+            return f"Invalid User"
+        except Exception as e:
+            self.logger.error(f"Error resolving username for {user_id}: {e}")
+            return f"Unknown User"
     
     def _load_pokemon_db(self) -> Dict:
         """Load Pokemon database for rarity calculations"""
@@ -88,43 +128,12 @@ class LeaderboardCommands:
         pokemon_db = self._load_pokemon_db()
         leaderboard = []
         
+        self.logger.info(f"Processing {len(data)} players for {leaderboard_type} leaderboard")
+        
         for user_id, player_data in data.items():
             try:
-                # Enhanced user resolution with async fetch as last resort
-                username = None
-                
-                # Method 1: Try bot cache first (fastest)
-                try:
-                    user = self.bot.get_user(int(user_id))
-                    if user:
-                        username = user.display_name or user.global_name or user.name
-                except Exception:
-                    pass
-                
-                # Method 2: Try guild members (still fast)
-                if not username:
-                    try:
-                        for guild in self.bot.guilds:
-                            member = guild.get_member(int(user_id))
-                            if member:
-                                username = member.display_name or member.global_name or member.name
-                                break
-                    except Exception:
-                        pass
-                
-                # Method 3: Try to fetch user from Discord API (slower, but gets real names)
-                if not username:
-                    try:
-                        user = await self.bot.fetch_user(int(user_id))
-                        if user:
-                            username = user.display_name or user.global_name or user.name
-                    except Exception:
-                        pass
-                
-                # Final fallback - create a readable name from user ID
-                if not username:
-                    last_four = user_id[-4:] if len(user_id) >= 4 else user_id
-                    username = f"Player #{last_four}"
+                # Get proper username
+                username = await self._get_username(user_id)
                 
                 if leaderboard_type == "pokemon_count":
                     score = self._calculate_pokemon_count(player_data)
@@ -138,11 +147,18 @@ class LeaderboardCommands:
                 else:
                     continue
                 
+                # Log scores for debugging
+                if leaderboard_type == "total_power":
+                    self.logger.debug(f"User {username} ({user_id[-4:]}): Power = {score}")
+                
                 if score > 0:  # Only include players with actual data
                     leaderboard.append((username, score, metric))
             except Exception as e:
                 # Skip invalid entries but log for debugging
+                self.logger.error(f"Error processing user {user_id}: {e}")
                 continue
+        
+        self.logger.info(f"Found {len(leaderboard)} players with {leaderboard_type} > 0")
         
         # Sort by score (descending)
         leaderboard.sort(key=lambda x: x[1], reverse=True)
