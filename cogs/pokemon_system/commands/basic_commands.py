@@ -48,21 +48,21 @@ class BasicPokemonCommands:
         self.logger.info(f"  Random Roll: {details['random_roll']:.3f}")
         
         if details['success']:
-            self.logger.info(f"  RESULT: ✅ CAUGHT! ({details['random_roll']:.3f} <= {details['final_catch_rate']:.3f})")
+            self.logger.info(f"  RESULT: [SUCCESS] CAUGHT! ({details['random_roll']:.3f} <= {details['final_catch_rate']:.3f})")
         else:
-            self.logger.info(f"  RESULT: ❌ ESCAPED ({details['random_roll']:.3f} > {details['final_catch_rate']:.3f})")
+            self.logger.info(f"  RESULT: [FAILED] ESCAPED ({details['random_roll']:.3f} > {details['final_catch_rate']:.3f})")
         
         # Log performance comparison
         original_success = details['random_roll'] <= details['original_catch_rate']
         if details['ball_modifier'] != 1.0 and details['ball_modifier'] != float('inf'):
             if details['success'] and not original_success:
-                self.logger.info(f"  BALL IMPACT: 🎯 Ball helped secure the catch!")
+                self.logger.info(f"  BALL IMPACT: [HELPFUL] Ball helped secure the catch!")
             elif not details['success'] and original_success:
-                self.logger.info(f"  BALL IMPACT: 🤔 Would have caught with Poké Ball") 
+                self.logger.info(f"  BALL IMPACT: [NOTE] Would have caught with Poke Ball") 
             elif details['success'] and original_success:
-                self.logger.info(f"  BALL IMPACT: ✨ Would have caught anyway, but ball improved odds")
+                self.logger.info(f"  BALL IMPACT: [BONUS] Would have caught anyway, but ball improved odds")
             else:
-                self.logger.info(f"  BALL IMPACT: 💔 Ball wasn't enough to secure catch")
+                self.logger.info(f"  BALL IMPACT: [INSUFFICIENT] Ball wasn't enough to secure catch")
         
         self.logger.info("---")
     
