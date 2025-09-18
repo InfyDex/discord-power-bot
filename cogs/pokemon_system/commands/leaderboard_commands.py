@@ -87,9 +87,24 @@ class LeaderboardCommands:
         
         for user_id, player_data in data.items():
             try:
-                # Get user from bot cache
+                # Simplified user resolution - try cache first, then guild members, then fallback
+                username = None
+                
+                # Try bot cache first
                 user = self.bot.get_user(int(user_id))
-                username = user.display_name if user else f"User {user_id}"
+                if user:
+                    username = user.display_name
+                else:
+                    # Try to find in guild members 
+                    for guild in self.bot.guilds:
+                        member = guild.get_member(int(user_id))
+                        if member:
+                            username = member.display_name
+                            break
+                
+                # Fallback to friendly ID format
+                if not username:
+                    username = f"Player #{user_id[-4:]}"  # Last 4 digits with Player prefix
                 
                 if leaderboard_type == "pokemon_count":
                     score = self._calculate_pokemon_count(player_data)
