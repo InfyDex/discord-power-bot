@@ -55,55 +55,175 @@ Roll dice using standard tabletop gaming notation.
 ---
 
 ### Pokemon Game
-Catch, collect, and manage your Pokemon in this engaging mini-game!
+Catch, collect, and manage your Pokemon in this engaging mini-game! The system features a complete refactored modular architecture with comprehensive Pokemon database.
 
-**Prefix Commands:**
+---
+
+#### 🌿 Basic Pokemon Commands
+
+**Encounter Pokemon:**
 - `!encounter` - Encounter a wild Pokemon (5-minute cooldown)
 - `!wild` - Encounter a wild Pokemon (alias)
 - `!pokemon` - Encounter a wild Pokemon (alias)
-- `!catch` - Attempt to catch the currently encountered Pokemon
-- `!pokemon_list` - View your Pokemon collection
-- `!pokedex` - View your Pokemon collection (alias)
-- `!collection` - View your Pokemon collection (alias)
+
+**Catch Pokemon:**
+- `!catch [ball_type]` - Attempt to catch your currently encountered Pokemon
+  - `!catch normal` - Use a normal Pokeball (default)
+  - `!catch master` - Use a Master Ball (100% catch rate)
+
+**Wild Pokemon Events:**
+- `!wild_catch` - Attempt to catch the current wild Pokemon in #pokemon channel
+- `!wcatch` - Attempt to catch wild Pokemon (alias)
+- `!wild_status` - Check the status of wild Pokemon spawning
+- `!wstatus` - Check wild spawn status (alias)
+
+---
+
+#### 📖 Collection Commands
+
+**View Collections:**
+- `!pokemon_list [user]` - View your Pokemon collection or another user's
+- `!pokedex [user]` - View Pokemon collection (alias)
+- `!collection [user]` - View Pokemon collection (alias)
+
+**Statistics & Information:**
 - `!pokemon_stats` - View your Pokemon game statistics
-- `!stats` - View your Pokemon game statistics (alias)
-- `!pokemon_info <name/id>` - View detailed info about a specific Pokemon
-- `!pinfo <name/id>` - View detailed info about a specific Pokemon (alias)
-- `!pokemon_detail <name/id>` - View detailed info about a specific Pokemon (alias)
+- `!stats` - View your statistics (alias)
+- `!inventory` - View your Pokemon inventory and items
+- `!inv` - View inventory (alias)
+- `!bag` - View inventory (alias)
 
-**Game Features:**
-- **Starting Inventory:** All players begin with 5 normal Pokeballs
-- **Pokemon Database:** 529 Pokemon from all 9 generations with complete stats and images
-- **Pokemon Rarities:** Common (47.8%), Uncommon (36.7%), Rare (6.2%), Legendary (9.3%)
-- **Encounter Cooldown:** 5 minutes between Pokemon encounters
-- **Catch Rates:** Intelligently calculated based on Pokemon base stats and rarity
-- **Collection Tracking:** Track all caught Pokemon with unique IDs and detailed stats
-- **Statistics:** Monitor encounters, catch rate, and collection progress
-- **Pokemon Images:** High-quality official artwork and sprites from PokeAPI GitHub repository
+**Pokemon Details:**
+- `!pokemon_info <name/id>` - View detailed info about a specific Pokemon in your collection
+- `!pinfo <name/id>` - View Pokemon details (alias)
+- `!pokemon_detail <name/id>` - View Pokemon details (alias)
 
-**Pokemon Available:**
-- **Generation 1 (Kanto):** 145 Pokemon including all original Pokemon
-- **Generation 2 (Johto):** 98 Pokemon including Dark, Steel types and legendary beasts
-- **Generation 3 (Hoenn):** 135 Pokemon including abilities and weather legendaries
-- **Generation 4 (Sinnoh):** 71 Pokemon including physical/special split and Dialga/Palkia
-- **Generation 5 (Unova):** 19 Pokemon including popular favorites and Reshiram/Zekrom
-- **Generation 6 (Kalos):** 12 Pokemon including Fairy type and mega evolution Pokemon
-- **Generation 7 (Alola):** 15 Pokemon including Z-moves and Ultra Necrozma
-- **Generation 8 (Galar):** 20 Pokemon including Dynamax legendaries and Eternatus
-- **Generation 9 (Paldea):** 14 Pokemon including latest starters and Koraidon/Miraidon
-- **Complete Coverage:** All starter evolution lines, pseudo-legendaries, and major legendary Pokemon from every generation
+**Examples:**
+- `!pokemon_info Pikachu` - View your Pikachu's details
+- `!pinfo #5` - View details of Pokemon #5 in your collection
+- `!collection @username` - View another user's collection
 
-**Examples:** 
-- `!encounter` - Find a wild Pokemon
-- `!catch` - Try to catch the encountered Pokemon
-- `!pokedex` - See your collection
-- `!stats` - Check your Pokemon statistics
+---
 
-**Admin Commands:**
-- `!pokemon_admin` / `!padmin` - View comprehensive Pokemon database statistics and management panel
-- `!expand_pokemon` - Display information about database expansion capabilities
-- `!pinfo Pikachu` - View detailed info about your Pikachu
-- `!pokemon_info #5` - View info about Pokemon #5 in your collection
+#### 🔧 Admin Commands
+*These commands require admin permissions*
+
+**Database Management:**
+- `!pokemon_admin` - View Pokemon database statistics and management panel
+- `!padmin` - Admin panel (alias)
+
+**Player Management:**
+- `!give_pokeball <user> <ball_type> <count>` - Give pokeballs to a user
+- `!give_ball <user> <ball_type> <count>` - Give pokeballs (alias)
+- `!pokeball_admin <user> <ball_type> <count>` - Give pokeballs (alias)
+
+**Wild Spawn Control:**
+- `!force_wild_spawn` - Manually trigger a wild Pokemon spawn
+- `!fws` - Force wild spawn (alias)
+
+**Debug & Troubleshooting:**
+- `!debug_channels` - Check available channels and bot permissions
+- `!dchannels` - Debug channels (alias)
+
+**Admin Examples:**
+- `!give_pokeball @username normal 10` - Give 10 normal pokeballs
+- `!give_pokeball @username master 1` - Give 1 master ball
+- `!force_wild_spawn` - Trigger immediate wild spawn
+
+---
+
+#### 🎮 Game Features
+
+**Starting Inventory:**
+- All new players begin with 5 normal Pokeballs
+- Master Balls available through admin distribution
+
+**Pokemon Database:**
+- **1000+ Pokemon** from all 9 generations with complete stats and images
+- **Real Pokemon Data:** Official sprites, artwork, descriptions, and base stats
+- **Generation Coverage:** Complete coverage from Kanto to Paldea
+
+**Pokemon Rarities & Distribution:**
+- **Common (60%):** Easily encountered Pokemon
+- **Uncommon (30%):** Moderately rare Pokemon  
+- **Rare (8%):** Hard to find Pokemon
+- **Legendary (2%):** Extremely rare legendary Pokemon
+
+**Encounter System:**
+- **Personal Encounters:** 5-minute cooldown between personal encounters
+- **Wild Spawns:** Global spawns every 30 minutes in #pokemon channel
+- **Catch Rates:** Intelligently calculated based on Pokemon stats and rarity
+- **Two Ball Types:** Normal Pokeballs (variable rate) vs Master Balls (100% rate)
+
+**Collection Features:**
+- **Unique Collection IDs:** Each caught Pokemon gets a unique ID in your collection
+- **Detailed Tracking:** Caught date, ball type used, source (encounter vs wild)
+- **Complete Pokemon Data:** Full stats, types, generation, descriptions, and images
+- **Collection Statistics:** Track total caught, encounter rate, rarity breakdown
+
+**Wild Spawn System:**
+- **Automatic Spawns:** Every 30 minutes in designated #pokemon channel
+- **Competition:** First trainer to successfully catch wins the Pokemon
+- **Common/Uncommon Only:** Wild spawns feature common and uncommon Pokemon
+- **Global Announcements:** Rich embeds with Pokemon details and catch instructions
+
+---
+
+#### 📊 Database Coverage
+
+**Generation Breakdown:**
+- **Generation 1 (Kanto):** Classic 151 Pokemon including all starters and legendaries
+- **Generation 2 (Johto):** Dark/Steel types, legendary beasts, Ho-Oh, Lugia
+- **Generation 3 (Hoenn):** Abilities system, weather legendaries, Rayquaza
+- **Generation 4 (Sinnoh):** Physical/special split, Dialga, Palkia, Giratina
+- **Generation 5 (Unova):** Large regional dex, Reshiram, Zekrom, Kyurem
+- **Generation 6 (Kalos):** Fairy type introduction, Xerneas, Yveltal
+- **Generation 7 (Alola):** Z-moves, Ultra Necrozma, Tapu guardians
+- **Generation 8 (Galar):** Dynamax system, Eternatus, Zacian, Zamazenta
+- **Generation 9 (Paldea):** Latest generation, Koraidon, Miraidon, new starters
+
+**Complete Coverage Includes:**
+- All starter evolution lines from every generation
+- All pseudo-legendary Pokemon (Dragonite, Tyranitar, Metagross, etc.)
+- All major legendary and mythical Pokemon
+- Popular fan-favorites and competitive Pokemon
+- Complete type coverage including all 18 Pokemon types
+
+---
+
+#### 💡 Usage Examples
+
+**Basic Gameplay:**
+```
+!encounter          # Find a wild Pokemon
+!catch normal       # Catch with normal Pokeball
+!catch master       # Catch with Master Ball (100% rate)
+!collection         # View your Pokemon collection
+!stats              # Check your statistics
+```
+
+**Wild Pokemon Events:**
+```
+!wild_status        # Check if wild Pokemon is available
+!wild_catch         # Attempt to catch wild Pokemon (in #pokemon channel)
+```
+
+**Collection Management:**
+```
+!inventory          # View your items and collection summary
+!pokemon_info Charizard    # View your Charizard's details
+!pinfo #1           # View details of Pokemon #1 in collection
+!collection @friend # View a friend's collection
+```
+
+**Admin Operations:**
+```
+!pokemon_admin              # View database statistics
+!give_pokeball @user normal 5    # Give 5 normal balls
+!give_pokeball @user master 1    # Give 1 master ball
+!force_wild_spawn          # Trigger immediate wild spawn
+!debug_channels            # Debug channel permissions
+```
 
 ---
 
@@ -234,11 +354,12 @@ This document will be updated whenever new commands are added to the bot. Check 
 | Category | Slash Commands | Prefix Commands |
 |----------|---------------|-----------------|
 | **Games** | `/flip`, `/roll` | `!flip`, `!coin`, `!roll`, `!dice`, `!r` |
-| **Pokemon** | - | `!encounter`, `!catch`, `!pokedex`, `!stats` |
+| **Pokemon** | - | `!encounter`, `!catch`, `!wild_catch`, `!collection`, `!stats`, `!inventory`, `!pokemon_info` |
+| **Pokemon Admin** | - | `!pokemon_admin`, `!give_pokeball`, `!force_wild_spawn`, `!debug_channels` |
 | **Greetings** | - | `!greet`, `!greetings` |
 | **Utilities** | - | `!info`, `!ping`, `!uptime` |
 | **Admin** | - | `!reload` |
 
 ---
 
-*Last Updated: September 17, 2025*
+*Last Updated: September 18, 2025*
