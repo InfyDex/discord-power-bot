@@ -8,6 +8,7 @@ from discord.ext import commands
 import time
 import psutil
 import os
+from datetime import timedelta
 
 
 class EmbedUtils:
@@ -90,7 +91,7 @@ class Utilities(commands.Cog):
     async def uptime(self, ctx):
         """Check bot uptime"""
         uptime_seconds = int(time.time() - self.start_time)
-        uptime_string = str(discord.utils.time.timedelta(seconds=uptime_seconds))
+        uptime_string = str(timedelta(seconds=uptime_seconds))
         await ctx.send(f"⏰ Bot uptime: {uptime_string}")
     
     @commands.command(name='info')
