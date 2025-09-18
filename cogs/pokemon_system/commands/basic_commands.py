@@ -176,9 +176,6 @@ class BasicPokemonCommands:
             embed = PokemonEmbedUtils.create_catch_success_embed(
                 pokemon=pokemon,
                 user=unified_ctx.author,
-                ball_type=ball_type,
-                collection_id=len(player.pokemon_collection),
-                total_caught=len(player.pokemon_collection)
             )
         else:
             embed = PokemonEmbedUtils.create_catch_failure_embed(

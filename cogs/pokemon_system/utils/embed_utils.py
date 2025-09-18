@@ -95,7 +95,7 @@ class PokemonEmbedUtils:
         return embed
     
     @staticmethod
-    def create_catch_success_embed(pokemon: PokemonData, user: discord.Member, ball_type: str, collection_id: int, total_caught: int) -> discord.Embed:
+    def create_catch_success_embed(pokemon: PokemonData, user: discord.Member) -> discord.Embed:
         """Create embed for successful Pokemon catch"""
         embed = discord.Embed(
             title="🎉 Pokemon Caught!",
@@ -104,15 +104,6 @@ class PokemonEmbedUtils:
         )
         embed.set_image(url=pokemon.image_url)
         embed.set_thumbnail(url=user.display_avatar.url)
-        
-        # Add Pokemon info
-        embed.add_field(name="Collection ID", value=f"#{collection_id}", inline=True)
-        
-        # Add capture details
-        ball_emoji = "⚾" if ball_type == "normal" else "🌟"
-        ball_name = "Normal Pokeball" if ball_type == "normal" else "Master Ball"
-        embed.add_field(name=f"{ball_emoji} Caught With", value=f"{ball_name}", inline=True)
-        embed.add_field(name="Source", value="Personal Encounter", inline=True)
         
         # Static footer
         embed.set_footer(text="Pokemon Caught • Legion Pokemon System")
