@@ -79,7 +79,7 @@ class LeaderboardCommands:
                         rarity_score += 25
         return rarity_score
     
-    def _get_leaderboard_data(self, leaderboard_type: str) -> List[Tuple[str, int, str]]:
+    async def _get_leaderboard_data(self, leaderboard_type: str) -> List[Tuple[str, int, str]]:
         """Get leaderboard data for specified type"""
         data = self._load_data()
         pokemon_db = self._load_pokemon_db()
@@ -87,24 +87,41 @@ class LeaderboardCommands:
         
         for user_id, player_data in data.items():
             try:
-                # Simplified user resolution - try cache first, then guild members, then fallback
+                # Enhanced user resolution with async fetch as last resort
                 username = None
                 
-                # Try bot cache first
-                user = self.bot.get_user(int(user_id))
-                if user:
-                    username = user.display_name
-                else:
-                    # Try to find in guild members 
-                    for guild in self.bot.guilds:
-                        member = guild.get_member(int(user_id))
-                        if member:
-                            username = member.display_name
-                            break
+                # Method 1: Try bot cache first (fastest)
+                try:
+                    user = self.bot.get_user(int(user_id))
+                    if user:
+                        username = user.display_name or user.global_name or user.name
+                except Exception:
+                    pass
                 
-                # Fallback to friendly ID format
+                # Method 2: Try guild members (still fast)
                 if not username:
-                    username = f"Player #{user_id[-4:]}"  # Last 4 digits with Player prefix
+                    try:
+                        for guild in self.bot.guilds:
+                            member = guild.get_member(int(user_id))
+                            if member:
+                                username = member.display_name or member.global_name or member.name
+                                break
+                    except Exception:
+                        pass
+                
+                # Method 3: Try to fetch user from Discord API (slower, but gets real names)
+                if not username:
+                    try:
+                        user = await self.bot.fetch_user(int(user_id))
+                        if user:
+                            username = user.display_name or user.global_name or user.name
+                    except Exception:
+                        pass
+                
+                # Final fallback - create a readable name from user ID
+                if not username:
+                    last_four = user_id[-4:] if len(user_id) >= 4 else user_id
+                    username = f"Player #{last_four}"
                 
                 if leaderboard_type == "pokemon_count":
                     score = self._calculate_pokemon_count(player_data)
@@ -120,8 +137,9 @@ class LeaderboardCommands:
                 
                 if score > 0:  # Only include players with actual data
                     leaderboard.append((username, score, metric))
-            except Exception:
-                continue  # Skip invalid entries
+            except Exception as e:
+                # Skip invalid entries but log for debugging
+                continue
         
         # Sort by score (descending)
         leaderboard.sort(key=lambda x: x[1], reverse=True)
@@ -245,7 +263,7 @@ class LeaderboardCommands:
     # Shared logic functions for different leaderboard types
     async def _leaderboard_pokemon_logic(self, unified_ctx):
         """Shared logic for Pokemon count leaderboard"""
-        leaderboard_data = self._get_leaderboard_data("pokemon_count")
+        leaderboard_data = await self._get_leaderboard_data("pokemon_count")
         embed = self._create_leaderboard_embed(
             leaderboard_data,
             "Pokemon Collection Leaderboard",
@@ -255,7 +273,7 @@ class LeaderboardCommands:
     
     async def _leaderboard_power_logic(self, unified_ctx):
         """Shared logic for total power leaderboard"""
-        leaderboard_data = self._get_leaderboard_data("total_power")
+        leaderboard_data = await self._get_leaderboard_data("total_power")
         embed = self._create_leaderboard_embed(
             leaderboard_data,
             "Total Power Leaderboard", 
@@ -265,7 +283,7 @@ class LeaderboardCommands:
     
     async def _leaderboard_rarity_logic(self, unified_ctx):
         """Shared logic for rarity score leaderboard"""
-        leaderboard_data = self._get_leaderboard_data("rarity_score")
+        leaderboard_data = await self._get_leaderboard_data("rarity_score")
         embed = self._create_leaderboard_embed(
             leaderboard_data,
             "Rarity Score Leaderboard",
