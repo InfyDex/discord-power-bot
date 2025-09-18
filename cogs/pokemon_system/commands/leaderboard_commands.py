@@ -23,6 +23,10 @@ class LeaderboardCommands:
         
         # Setup logger using Config
         self.logger = Config.setup_logging()
+        
+        # Username cache to avoid repeated API calls
+        self._username_cache = {}
+        self._cache_max_size = 1000  # Limit cache size
     
     def _load_data(self) -> Dict:
         """Load player data from JSON file"""
@@ -33,40 +37,69 @@ class LeaderboardCommands:
             return {}
     
     async def _get_username(self, user_id: str) -> str:
-        """Get username for a user ID with proper async resolution"""
+        """Get username for a user ID with caching and optimized resolution"""
+        # Check cache first
+        if user_id in self._username_cache:
+            return self._username_cache[user_id]
+        
         try:
             user_id_int = int(user_id)
+            username = None
             
             # Method 1: Try bot cache first (fastest)
             user = self.bot.get_user(user_id_int)
             if user:
-                return user.display_name or user.global_name or user.name
+                username = user.display_name or user.global_name or user.name
             
             # Method 2: Try guild members (still fast)
-            for guild in self.bot.guilds:
-                member = guild.get_member(user_id_int)
-                if member:
-                    return member.display_name or member.global_name or member.name
+            if not username:
+                for guild in self.bot.guilds:
+                    member = guild.get_member(user_id_int)
+                    if member:
+                        username = member.display_name or member.global_name or member.name
+                        break
             
-            # Method 3: Fetch user from Discord API (slower but reliable)
-            try:
-                user = await self.bot.fetch_user(user_id_int)
-                if user:
-                    return user.display_name or user.global_name or user.name
-            except discord.NotFound:
-                self.logger.warning(f"User {user_id} not found on Discord")
-            except discord.HTTPException as e:
-                self.logger.warning(f"HTTP error fetching user {user_id}: {e}")
+            # Method 3: Only fetch from API if we really need to (slower)
+            if not username:
+                try:
+                    user = await self.bot.fetch_user(user_id_int)
+                    if user:
+                        username = user.display_name or user.global_name or user.name
+                except discord.NotFound:
+                    self.logger.warning(f"User {user_id} not found on Discord")
+                    username = f"Unknown User"
+                except discord.HTTPException as e:
+                    self.logger.warning(f"HTTP error fetching user {user_id}: {e}")
+                    username = f"Unknown User"
             
-            # Final fallback - return a placeholder that indicates missing user
-            return f"Unknown User"
+            # Final fallback
+            if not username:
+                username = f"Unknown User"
+            
+            # Cache the result (with size limit)
+            if len(self._username_cache) >= self._cache_max_size:
+                # Remove oldest entry (simple FIFO)
+                oldest_key = next(iter(self._username_cache))
+                del self._username_cache[oldest_key]
+            
+            self._username_cache[user_id] = username
+            return username
             
         except ValueError:
             self.logger.error(f"Invalid user ID format: {user_id}")
-            return f"Invalid User"
+            username = f"Invalid User"
+            self._username_cache[user_id] = username
+            return username
         except Exception as e:
             self.logger.error(f"Error resolving username for {user_id}: {e}")
-            return f"Unknown User"
+            username = f"Unknown User"
+            self._username_cache[user_id] = username
+            return username
+    
+    def clear_username_cache(self):
+        """Clear the username cache (useful for testing or memory management)"""
+        self._username_cache.clear()
+        self.logger.info("Username cache cleared")
     
     def _load_pokemon_db(self) -> Dict:
         """Load Pokemon database for rarity calculations"""
@@ -123,18 +156,16 @@ class LeaderboardCommands:
         return rarity_score
     
     async def _get_leaderboard_data(self, leaderboard_type: str) -> List[Tuple[str, int, str]]:
-        """Get leaderboard data for specified type"""
+        """Get leaderboard data for specified type with optimized processing"""
         data = self._load_data()
         pokemon_db = self._load_pokemon_db()
-        leaderboard = []
         
         self.logger.info(f"Processing {len(data)} players for {leaderboard_type} leaderboard")
         
+        # Step 1: Calculate scores for all players (fast, no async)
+        scores = []
         for user_id, player_data in data.items():
             try:
-                # Get proper username
-                username = await self._get_username(user_id)
-                
                 if leaderboard_type == "pokemon_count":
                     score = self._calculate_pokemon_count(player_data)
                     metric = "Pokemon"
@@ -147,22 +178,36 @@ class LeaderboardCommands:
                 else:
                     continue
                 
-                # Log scores for debugging
-                if leaderboard_type == "total_power":
-                    self.logger.debug(f"User {username} ({user_id[-4:]}): Power = {score}")
-                
                 if score > 0:  # Only include players with actual data
-                    leaderboard.append((username, score, metric))
+                    scores.append((user_id, score, metric))
+                    
             except Exception as e:
-                # Skip invalid entries but log for debugging
-                self.logger.error(f"Error processing user {user_id}: {e}")
+                self.logger.error(f"Error calculating score for user {user_id}: {e}")
                 continue
         
-        self.logger.info(f"Found {len(leaderboard)} players with {leaderboard_type} > 0")
+        # Step 2: Sort and get top 10 (fast)
+        scores.sort(key=lambda x: x[1], reverse=True)
+        top_scores = scores[:10]
         
-        # Sort by score (descending)
-        leaderboard.sort(key=lambda x: x[1], reverse=True)
-        return leaderboard[:10]  # Top 10 only
+        self.logger.info(f"Found {len(scores)} players with {leaderboard_type} > 0, processing top {len(top_scores)}")
+        
+        # Step 3: Only get usernames for top 10 players (much fewer async calls)
+        leaderboard = []
+        for user_id, score, metric in top_scores:
+            try:
+                username = await self._get_username(user_id)
+                leaderboard.append((username, score, metric))
+                
+                # Log scores for debugging
+                if leaderboard_type == "total_power":
+                    self.logger.debug(f"Top player {username} ({user_id[-4:]}): Power = {score}")
+                    
+            except Exception as e:
+                self.logger.error(f"Error getting username for top player {user_id}: {e}")
+                # Still include in leaderboard with fallback name
+                leaderboard.append((f"Player #{user_id[-4:]}", score, metric))
+        
+        return leaderboard
     
     def _get_user_rank(self, user_id: str, leaderboard_type: str) -> Tuple[int, int, str]:
         """Get individual user's rank in specified leaderboard"""
