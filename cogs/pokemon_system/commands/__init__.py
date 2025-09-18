@@ -7,10 +7,12 @@ from .basic_commands import BasicPokemonCommands
 from .collection_commands import CollectionPokemonCommands
 from .admin_commands import AdminPokemonCommands
 from .leaderboard_commands import LeaderboardCommands
+from .shop_commands import ShopCommands
 
 __all__ = [
     'BasicPokemonCommands',
     'CollectionPokemonCommands', 
     'AdminPokemonCommands',
-    'LeaderboardCommands'
+    'LeaderboardCommands',
+    'ShopCommands'
 ]

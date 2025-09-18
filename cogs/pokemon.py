@@ -8,7 +8,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 from .pokemon_system.managers import PokemonDatabaseManager, PlayerDataManager, WildSpawnManager
-from .pokemon_system.commands import BasicPokemonCommands, CollectionPokemonCommands, AdminPokemonCommands, LeaderboardCommands
+from .pokemon_system.commands import BasicPokemonCommands, CollectionPokemonCommands, AdminPokemonCommands, LeaderboardCommands, ShopCommands
 
 class Pokemon(commands.Cog):
     """Cog for Pokemon game functionality - Refactored Modular Version"""
@@ -26,6 +26,7 @@ class Pokemon(commands.Cog):
         self.collection_commands = CollectionPokemonCommands(self.pokemon_db, self.player_db)
         self.admin_commands = AdminPokemonCommands(self.pokemon_db, self.player_db, self.wild_spawn)
         self.leaderboard_commands = LeaderboardCommands(bot)
+        self.shop_commands = ShopCommands(self.pokemon_db, self.player_db)
         
         # Track spawn task status
         self._spawn_task_started = False
@@ -107,6 +108,34 @@ class Pokemon(commands.Cog):
         from .pokemon_system.utils.interaction_utils import create_unified_context
         unified_ctx = create_unified_context(interaction)
         await self.basic_commands._daily_claim_logic(unified_ctx)
+    
+    # ===== SHOP COMMANDS =====
+    
+    # Prefix Commands
+    @commands.command(name='shop', aliases=['store', 'pokeshop'])
+    async def shop(self, ctx):
+        """View the pokeball shop"""
+        await self.shop_commands.show_shop(ctx)
+    
+    @commands.command(name='buy')
+    async def buy_pokeball(self, ctx, ball_type: str, quantity: int = 1):
+        """Buy pokeballs from the shop"""
+        await self.shop_commands.buy_pokeball(ctx, ball_type, quantity)
+    
+    # Slash Commands
+    @app_commands.command(name="shop", description="View the pokeball shop with prices and your balance")
+    async def shop_slash(self, interaction: discord.Interaction):
+        """View the pokeball shop (slash command)"""
+        await self.shop_commands.show_shop(interaction)
+    
+    @app_commands.command(name="buy", description="Purchase pokeballs from the shop using pokecoins")
+    @app_commands.describe(
+        ball_type="Type of pokeball to buy (poke, great, ultra, master)",
+        quantity="Number of pokeballs to purchase (default: 1)"
+    )
+    async def buy_pokeball_slash(self, interaction: discord.Interaction, ball_type: str, quantity: int = 1):
+        """Buy pokeballs from the shop (slash command)"""
+        await self.shop_commands.buy_pokeball(interaction, ball_type, quantity)
     
     # ===== COLLECTION COMMANDS =====
     
