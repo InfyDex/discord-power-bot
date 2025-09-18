@@ -47,6 +47,14 @@ class PlayerInventory:
         elif ball_type == "master":
             self.master_pokeballs += count
     
+    def get_pokeball_count(self, ball_type: str) -> int:
+        """Get the count of a specific pokeball type"""
+        if ball_type == "normal":
+            return self.normal_pokeballs
+        elif ball_type == "master":
+            return self.master_pokeballs
+        return 0
+    
     def to_dict(self) -> Dict[str, int]:
         """Convert inventory to dictionary format"""
         return {

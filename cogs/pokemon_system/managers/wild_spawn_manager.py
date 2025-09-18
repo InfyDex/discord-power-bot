@@ -146,7 +146,7 @@ class WildSpawnManager:
     
     def start_spawn_task(self, bot, pokemon_database_manager):
         """Start the background task for wild Pokemon spawning"""
-        from ..utils.pokemon_utils import PokemonEmbedUtils
+        from ..utils.embed_utils import PokemonEmbedUtils
         
         @tasks.loop(minutes=30)
         async def wild_spawn_loop():
@@ -174,7 +174,7 @@ class WildSpawnManager:
             self.set_current_wild_pokemon(pokemon, channel.id)
             
             # Import embed utils here to avoid circular imports
-            from ..utils.pokemon_utils import PokemonEmbedUtils
+            from ..utils.embed_utils import PokemonEmbedUtils
             
             # Create and send spawn embed
             embed = PokemonEmbedUtils.create_wild_spawn_embed(pokemon)

@@ -26,17 +26,26 @@ class UnifiedContext:
         """Get the channel where the command was used"""
         return self._original.channel
     
-    async def send(self, content=None, **kwargs):
+    @property
+    def is_interaction(self):
+        """Check if this is an interaction (slash command)"""
+        return self._is_interaction
+    
+    async def send(self, content=None, embed=None, ephemeral=False, **kwargs):
         """Send a message, handling both context and interaction"""
         if self._is_interaction:
             # For interactions, we need to respond or followup
             if not self._original.response.is_done():
-                await self._original.response.send_message(content, **kwargs)
+                await self._original.response.send_message(content=content, embed=embed, ephemeral=ephemeral, **kwargs)
             else:
-                await self._original.followup.send(content, **kwargs)
+                await self._original.followup.send(content=content, embed=embed, ephemeral=ephemeral, **kwargs)
         else:
-            # For regular commands, use ctx.send
-            await self._original.send(content, **kwargs)
+            # For regular commands, use ctx.send (ignore ephemeral for prefix commands)
+            await self._original.send(content=content, embed=embed, **kwargs)
+    
+    async def send_error(self, embed, ephemeral=True):
+        """Send an error message (ephemeral for slash commands, normal for prefix)"""
+        await self.send(embed=embed, ephemeral=ephemeral if self._is_interaction else False)
 
 def create_unified_context(ctx_or_interaction):
     """Create a unified context from either a Context or Interaction"""

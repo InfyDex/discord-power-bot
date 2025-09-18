@@ -1,60 +1,14 @@
 """
-Pokemon Utilities
-Helper functions for Pokemon type colors, embed creation, and other utilities.
+Pokemon Embed Utilities  
+Helper functions for creating Pokemon-related Discord embeds.
 """
 
 import discord
-from typing import List, Dict, Any
+from typing import List, Dict
 from datetime import datetime
+
+from .type_utils import PokemonTypeUtils
 from ..models.pokemon_model import PokemonData, CaughtPokemon
-
-
-class PokemonTypeUtils:
-    """Utilities for Pokemon type handling"""
-    
-    TYPE_COLORS = {
-        "Normal": 0xA8A878,
-        "Fire": 0xF08030,
-        "Water": 0x6890F0,
-        "Electric": 0xF8D030,
-        "Grass": 0x78C850,
-        "Ice": 0x98D8D8,
-        "Fighting": 0xC03028,
-        "Poison": 0xA040A0,
-        "Ground": 0xE0C068,
-        "Flying": 0xA890F0,
-        "Psychic": 0xF85888,
-        "Bug": 0xA8B820,
-        "Rock": 0xB8A038,
-        "Ghost": 0x705898,
-        "Dragon": 0x7038F8,
-        "Dark": 0x705848,
-        "Steel": 0xB8B8D0,
-        "Fairy": 0xEE99AC
-    }
-    
-    RARITY_EMOJIS = {
-        "Common": "⚪",
-        "Uncommon": "🟢", 
-        "Rare": "🔵",
-        "Legendary": "🟡"
-    }
-    
-    @classmethod
-    def get_type_color(cls, pokemon_types: List[str]) -> int:
-        """Get Discord embed color based on primary Pokemon type"""
-        primary_type = pokemon_types[0] if pokemon_types else "Normal"
-        return cls.TYPE_COLORS.get(primary_type, 0x000000)
-    
-    @classmethod
-    def get_rarity_emoji(cls, rarity: str) -> str:
-        """Get emoji for Pokemon rarity"""
-        return cls.RARITY_EMOJIS.get(rarity, "⚪")
-    
-    @classmethod
-    def format_types(cls, types: List[str]) -> str:
-        """Format type list as string"""
-        return " / ".join(types)
 
 
 class PokemonEmbedUtils:
@@ -103,7 +57,7 @@ class PokemonEmbedUtils:
         return embed
     
     @staticmethod
-    def create_encounter_embed(pokemon: PokemonData, player_name: str, player_avatar_url: str, player_stats: Dict[str, int]) -> discord.Embed:
+    def create_encounter_embed(pokemon: PokemonData, player_name: str, player_avatar_url: str, encounter_type: str = "encounter") -> discord.Embed:
         """Create embed for personal Pokemon encounter"""
         embed = discord.Embed(
             title=f"🌿 Wild {pokemon.name} Appeared!",
@@ -133,14 +87,6 @@ class PokemonEmbedUtils:
         
         # Simple capture instructions
         embed.add_field(name="🎯 How to Catch", value="Use `!catch normal` or `!catch master` to attempt capture!", inline=False)
-        
-        # Pokeball inventory - clean format
-        ball_text = f"**{player_stats['normal_balls']}** Normal Pokeballs\n**{player_stats['master_balls']}** Master Balls"
-        embed.add_field(name="Pokeballs", value=ball_text, inline=True)
-        
-        # Encounter info - simplified
-        encounter_count = player_stats['total_encounters']
-        embed.add_field(name="Personal Encounter", value=f"Only you can catch this!\nTotal encounters: {encounter_count}", inline=True)
         
         # Clean footer
         embed.set_footer(text=f"Personal encounter for {player_name} • Gen {pokemon.generation} • Use !catch to capture")
@@ -180,7 +126,7 @@ class PokemonEmbedUtils:
         return embed
     
     @staticmethod
-    def create_catch_failure_embed(pokemon: PokemonData, ball_type: str) -> discord.Embed:
+    def create_catch_failure_embed(pokemon: PokemonData, ball_type: str, remaining_pokeballs: int) -> discord.Embed:
         """Create embed for failed Pokemon catch"""
         ball_name = "Normal Pokeball" if ball_type == "normal" else "Master Ball"
         
@@ -191,6 +137,7 @@ class PokemonEmbedUtils:
         )
         embed.set_thumbnail(url=pokemon.sprite_url)
         embed.add_field(name="Next Steps", value=f"• Use `!encounter` to find another Pokemon\n• Try using a Master Ball for guaranteed success\n• This Pokemon had a {int(pokemon.catch_rate * 100)}% catch rate", inline=False)
+        embed.add_field(name=f"{ball_name}s Remaining", value=f"{remaining_pokeballs}", inline=True)
         
         return embed
     

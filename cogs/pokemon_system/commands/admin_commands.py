@@ -4,8 +4,8 @@ Handles administrative commands for Pokemon system management.
 """
 
 import discord
-from discord.ext import commands
 from ..managers import PokemonDatabaseManager, PlayerDataManager, WildSpawnManager
+from ..utils import ErrorUtils
 from config import Config
 
 
@@ -20,11 +20,8 @@ class AdminPokemonCommands:
     async def pokemon_admin(self, ctx):
         """Admin command to view Pokemon database statistics"""
         if not Config.is_admin(ctx.author.id):
-            embed = discord.Embed(
-                title="❌ Access Denied",
-                description="You don't have permission to use admin commands.",
-                color=discord.Color.red()
-            )
+            embed = ErrorUtils.create_system_error_embed("You don't have permission to use admin commands.")
+            embed.title = "❌ Access Denied"
             await ctx.send(embed=embed)
             return
         
