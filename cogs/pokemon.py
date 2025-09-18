@@ -8,7 +8,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 from .pokemon_system.managers import PokemonDatabaseManager, PlayerDataManager, WildSpawnManager
-from .pokemon_system.commands import BasicPokemonCommands, CollectionPokemonCommands, AdminPokemonCommands
+from .pokemon_system.commands import BasicPokemonCommands, CollectionPokemonCommands, AdminPokemonCommands, LeaderboardCommands
 
 class Pokemon(commands.Cog):
     """Cog for Pokemon game functionality - Refactored Modular Version"""
@@ -25,6 +25,7 @@ class Pokemon(commands.Cog):
         self.basic_commands = BasicPokemonCommands(self.pokemon_db, self.player_db, self.wild_spawn)
         self.collection_commands = CollectionPokemonCommands(self.pokemon_db, self.player_db)
         self.admin_commands = AdminPokemonCommands(self.pokemon_db, self.player_db, self.wild_spawn)
+        self.leaderboard_commands = LeaderboardCommands(bot)
         
         # Track spawn task status
         self._spawn_task_started = False
@@ -118,6 +119,39 @@ class Pokemon(commands.Cog):
         """View detailed information about a specific Pokemon in your collection"""
         await self.collection_commands.pokemon_info(ctx, pokemon_identifier=pokemon_identifier)
     
+    # Leaderboard Commands
+    @commands.command(name='leaderboard_pokemon', aliases=['lb_pokemon', 'pokemon_leaderboard'])
+    async def leaderboard_pokemon(self, ctx):
+        """View the Pokemon collection leaderboard (top 10 by Pokemon count)"""
+        await self.leaderboard_commands.leaderboard_pokemon(ctx)
+    
+    @commands.command(name='leaderboard_power', aliases=['lb_power', 'power_leaderboard'])
+    async def leaderboard_power(self, ctx):
+        """View the total power leaderboard (top 10 by combined Pokemon power)"""
+        await self.leaderboard_commands.leaderboard_power(ctx)
+    
+    @commands.command(name='leaderboard_rarity', aliases=['lb_rarity', 'rarity_leaderboard'])
+    async def leaderboard_rarity(self, ctx):
+        """View the rarity score leaderboard (top 10 by rare Pokemon)"""
+        await self.leaderboard_commands.leaderboard_rarity(ctx)
+    
+    @commands.command(name='leaderboard_rank', aliases=['lb_rank', 'rank'])
+    async def leaderboard_rank(self, ctx, leaderboard_type: str, target_user: discord.Member = None):
+        """Check individual rank in specified leaderboard (pokemon/power/rarity)"""
+        valid_types = ['pokemon', 'power', 'rarity']
+        if leaderboard_type.lower() not in valid_types:
+            await ctx.send(f"Invalid leaderboard type. Use one of: {', '.join(valid_types)}")
+            return
+        
+        type_mapping = {
+            'pokemon': 'pokemon_count',
+            'power': 'total_power', 
+            'rarity': 'rarity_score'
+        }
+        
+        mapped_type = type_mapping[leaderboard_type.lower()]
+        await self.leaderboard_commands.leaderboard_rank(ctx, mapped_type, target_user)
+
     # Slash Commands
     @app_commands.command(name="collection", description="View your Pokemon collection or another user's collection")
     @app_commands.describe(user="User whose collection to view (optional)")
@@ -234,6 +268,47 @@ class Pokemon(commands.Cog):
         
         quick_ctx = QuickCtx(interaction, self.bot)
         await self.admin_commands.debug_channels(quick_ctx)
+
+    # Leaderboard Slash Commands
+    @app_commands.command(name="leaderboard_pokemon", description="View Pokemon collection leaderboard (top 10)")
+    async def slash_leaderboard_pokemon(self, interaction: discord.Interaction):
+        """Pokemon collection leaderboard (slash command)"""
+        from .pokemon_system.utils.interaction_utils import create_unified_context
+        unified_ctx = create_unified_context(interaction)
+        await self.leaderboard_commands._leaderboard_pokemon_logic(unified_ctx)
+    
+    @app_commands.command(name="leaderboard_power", description="View total power leaderboard (top 10)")
+    async def slash_leaderboard_power(self, interaction: discord.Interaction):
+        """Total power leaderboard (slash command)"""
+        from .pokemon_system.utils.interaction_utils import create_unified_context
+        unified_ctx = create_unified_context(interaction)
+        await self.leaderboard_commands._leaderboard_power_logic(unified_ctx)
+    
+    @app_commands.command(name="leaderboard_rarity", description="View rarity score leaderboard (top 10)")
+    async def slash_leaderboard_rarity(self, interaction: discord.Interaction):
+        """Rarity score leaderboard (slash command)"""
+        from .pokemon_system.utils.interaction_utils import create_unified_context
+        unified_ctx = create_unified_context(interaction)
+        await self.leaderboard_commands._leaderboard_rarity_logic(unified_ctx)
+    
+    @app_commands.command(name="leaderboard_rank", description="Check individual rank in specified leaderboard")
+    @app_commands.describe(
+        leaderboard_type="Type of leaderboard to check rank in",
+        user="User to check rank for (defaults to yourself)"
+    )
+    @app_commands.choices(leaderboard_type=[
+        app_commands.Choice(name="Pokemon Collection", value="pokemon_count"),
+        app_commands.Choice(name="Total Power", value="total_power"),
+        app_commands.Choice(name="Rarity Score", value="rarity_score")
+    ])
+    async def slash_leaderboard_rank(self, interaction: discord.Interaction, 
+                                   leaderboard_type: str, user: discord.Member = None):
+        """Individual rank lookup (slash command)"""
+        from .pokemon_system.utils.interaction_utils import create_unified_context
+        if user is None:
+            user = interaction.user
+        unified_ctx = create_unified_context(interaction)
+        await self.leaderboard_commands._leaderboard_rank_logic(unified_ctx, leaderboard_type, user)
 
 
 async def setup(bot):
