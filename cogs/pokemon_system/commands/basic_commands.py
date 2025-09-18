@@ -34,9 +34,10 @@ class BasicPokemonCommands:
         # Check cooldown
         if not player.can_encounter():
             cooldown_remaining = player.get_cooldown_remaining()
+            time_unit = "minute" if cooldown_remaining == 1 else "minutes"
             embed = discord.Embed(
                 title="⏰ Encounter Cooldown",
-                description=f"You need to wait **{cooldown_remaining}** before encountering another Pokemon!",
+                description=f"You need to wait **{cooldown_remaining} {time_unit}** before encountering another Pokemon!",
                 color=discord.Color.orange()
             )
             await unified_ctx.send_error(embed)
