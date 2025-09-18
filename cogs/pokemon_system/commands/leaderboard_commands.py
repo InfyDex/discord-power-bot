@@ -44,10 +44,9 @@ class LeaderboardCommands:
         """Calculate total power level of all Pokemon for a player"""
         total_power = 0
         for pokemon in player_data.get('pokemon', []):
-            pokemon_name = pokemon.get('name', '')
-            if pokemon_name in pokemon_db:
-                # Use attack + defense + hp as power metric
-                stats = pokemon_db[pokemon_name].get('stats', {})
+            # Use the stats directly from the player's Pokemon data
+            stats = pokemon.get('stats', {})
+            if stats:
                 power = (
                     stats.get('attack', 0) + 
                     stats.get('defense', 0) + 
@@ -60,29 +59,27 @@ class LeaderboardCommands:
         """Calculate rarity score based on legendary and rare Pokemon"""
         rarity_score = 0
         for pokemon in player_data.get('pokemon', []):
-            pokemon_name = pokemon.get('name', '')
-            if pokemon_name in pokemon_db:
-                pokemon_info = pokemon_db[pokemon_name]
-                rarity = pokemon_info.get('rarity', '').lower()
-                
-                # Score based on rarity field
-                if rarity == 'legendary':
-                    rarity_score += 100
-                elif rarity == 'mythical':
-                    rarity_score += 150
-                elif rarity == 'ultra rare':
-                    rarity_score += 75
-                elif rarity == 'rare':
-                    rarity_score += 50
-                elif rarity == 'uncommon':
-                    rarity_score += 25
-                # Common gets 0 points
-                
-                # Additional points for high base stats (pseudo-legendary check)
-                stats = pokemon_info.get('stats', {})
-                total_stats = stats.get('total', 0) or sum(stats.values()) if stats else 0
-                if total_stats >= 600:
-                    rarity_score += 25  # Bonus for pseudo-legendary stats
+            # Use rarity directly from the player's Pokemon data
+            rarity = pokemon.get('rarity', '').lower()
+            
+            # Score based on rarity field
+            if rarity == 'legendary':
+                rarity_score += 100
+            elif rarity == 'mythical':
+                rarity_score += 150
+            elif rarity == 'ultra rare':
+                rarity_score += 75
+            elif rarity == 'rare':
+                rarity_score += 50
+            elif rarity == 'uncommon':
+                rarity_score += 25
+            # Common gets 0 points
+            
+            # Additional points for high base stats (pseudo-legendary check)
+            stats = pokemon.get('stats', {})
+            total_stats = stats.get('total', 0) or sum(stats.values()) if stats else 0
+            if total_stats >= 600:
+                rarity_score += 25  # Bonus for pseudo-legendary stats
         return rarity_score
     
     async def _get_leaderboard_data(self, leaderboard_type: str) -> List[Tuple[str, int, str]]:
