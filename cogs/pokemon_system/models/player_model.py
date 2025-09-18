@@ -325,37 +325,68 @@ class PlayerData:
         self.last_encounter = datetime.now().isoformat()
         self.stats.add_encounter()
     
-    def catch_pokemon(self, ball_type: str) -> tuple[bool, str]:
-        """Attempt to catch the current encounter. Returns (success, error_reason)"""
+    def catch_pokemon(self, ball_type: str) -> tuple[bool, str, dict]:
+        """
+        Attempt to catch the current encounter. 
+        Returns (success, error_reason, catch_details)
+        catch_details contains: {
+            'pokemon_name': str,
+            'original_catch_rate': float,
+            'ball_modifier': float,
+            'final_catch_rate': float,
+            'ball_type': str,
+            'ball_name': str,
+            'random_roll': float
+        }
+        """
+        catch_details = {}
+        
         if not self.current_encounter:
-            return False, "no_encounter"
+            return False, "no_encounter", catch_details
         
         # Check if already attempted to catch this encounter
         if self.encounter_catch_attempted:
-            return False, "already_attempted"
+            return False, "already_attempted", catch_details
         
         # Normalize ball type
         ball_type = self.inventory._normalize_ball_type(ball_type)
         
         if not self.inventory.use_pokeball(ball_type):
-            return False, "no_pokeball"
+            return False, "no_pokeball", catch_details
         
         # Mark that we've attempted to catch this encounter
         self.encounter_catch_attempted = True
         
+        # Prepare catch details for logging
+        pokemon_name = self.current_encounter.name
+        original_catch_rate = self.current_encounter.catch_rate
+        
         # Calculate catch success with ball type modifier
         ball_config = self.inventory.get_ball_info(ball_type)
         catch_rate_modifier = ball_config.get("catch_rate_modifier", 1.0)
+        ball_name = ball_config.get("name", ball_type.title() + " Ball")
         
         if catch_rate_modifier == float('inf'):  # Master Ball
-            catch_rate = 1.0
+            final_catch_rate = 1.0
         else:
             # Apply ball modifier to base catch rate
-            base_catch_rate = self.current_encounter.catch_rate
-            catch_rate = min(1.0, base_catch_rate * catch_rate_modifier)
+            final_catch_rate = min(1.0, original_catch_rate * catch_rate_modifier)
         
         import random
-        success = random.random() <= catch_rate
+        random_roll = random.random()
+        success = random_roll <= final_catch_rate
+        
+        # Populate catch details for logging
+        catch_details = {
+            'pokemon_name': pokemon_name,
+            'original_catch_rate': original_catch_rate,
+            'ball_modifier': catch_rate_modifier,
+            'final_catch_rate': final_catch_rate,
+            'ball_type': ball_type,
+            'ball_name': ball_name,
+            'random_roll': random_roll,
+            'success': success
+        }
         
         if success:
             # Add to collection
@@ -371,9 +402,9 @@ class PlayerData:
             self.stats.add_catch()
             self.current_encounter = None  # Clear encounter
             self.encounter_catch_attempted = False  # Reset flag when encounter is cleared
-            return True, "success"
+            return True, "success", catch_details
         
-        return False, "escaped"
+        return False, "escaped", catch_details
     
     def catch_wild_pokemon(self, pokemon: PokemonData) -> bool:
         """Catch a wild Pokemon (different from personal encounters)"""

@@ -11,6 +11,7 @@ from typing import Optional
 from ..managers import PokemonDatabaseManager, PlayerDataManager, WildSpawnManager
 from ..utils import PokemonEmbedUtils, PokemonTypeUtils, ValidationUtils, ErrorUtils
 from ..utils.interaction_utils import UnifiedContext, create_unified_context
+from config import Config
 
 
 class BasicPokemonCommands:
@@ -20,6 +21,50 @@ class BasicPokemonCommands:
         self.pokemon_db = pokemon_db
         self.player_db = player_db
         self.wild_spawn = wild_spawn
+        
+        # Setup logging
+        self.logger = Config.setup_logging()
+    
+    def _log_catch_attempt(self, user, catch_details):
+        """Log detailed catch attempt information"""
+        details = catch_details
+        user_info = f"{user.display_name} ({user.id})"
+        
+        # Log basic catch attempt
+        self.logger.info(f"CATCH ATTEMPT - User: {user_info}")
+        self.logger.info(f"  Pokemon: {details['pokemon_name']}")
+        self.logger.info(f"  Ball Used: {details['ball_name']} ({details['ball_type']})")
+        self.logger.info(f"  Original Catch Rate: {details['original_catch_rate']:.1%}")
+        
+        # Log ball effect
+        if details['ball_modifier'] == float('inf'):
+            self.logger.info(f"  Ball Effect: Master Ball (Guaranteed Capture)")
+            self.logger.info(f"  Final Catch Rate: 100.0%")
+        else:
+            self.logger.info(f"  Ball Modifier: {details['ball_modifier']}x")
+            self.logger.info(f"  Final Catch Rate: {details['final_catch_rate']:.1%}")
+        
+        # Log outcome
+        self.logger.info(f"  Random Roll: {details['random_roll']:.3f}")
+        
+        if details['success']:
+            self.logger.info(f"  RESULT: ✅ CAUGHT! ({details['random_roll']:.3f} <= {details['final_catch_rate']:.3f})")
+        else:
+            self.logger.info(f"  RESULT: ❌ ESCAPED ({details['random_roll']:.3f} > {details['final_catch_rate']:.3f})")
+        
+        # Log performance comparison
+        original_success = details['random_roll'] <= details['original_catch_rate']
+        if details['ball_modifier'] != 1.0 and details['ball_modifier'] != float('inf'):
+            if details['success'] and not original_success:
+                self.logger.info(f"  BALL IMPACT: 🎯 Ball helped secure the catch!")
+            elif not details['success'] and original_success:
+                self.logger.info(f"  BALL IMPACT: 🤔 Would have caught with Poké Ball") 
+            elif details['success'] and original_success:
+                self.logger.info(f"  BALL IMPACT: ✨ Would have caught anyway, but ball improved odds")
+            else:
+                self.logger.info(f"  BALL IMPACT: 💔 Ball wasn't enough to secure catch")
+        
+        self.logger.info("---")
     
     # ========== SHARED LOGIC FUNCTIONS ==========
     
@@ -96,8 +141,12 @@ class BasicPokemonCommands:
         
         # Attempt to catch the Pokemon
         pokemon = player.current_encounter
-        success, reason = player.catch_pokemon(ball_type)
+        success, reason, catch_details = player.catch_pokemon(ball_type)
         self.player_db.save_player(user_id)
+        
+        # Log comprehensive catch information
+        if catch_details:
+            self._log_catch_attempt(unified_ctx.author, catch_details)
         
         # Handle different outcomes
         if reason == "already_attempted":
