@@ -145,21 +145,37 @@ class PlayerData:
         if not self.last_encounter:
             return True
         
-        last_time = datetime.fromisoformat(self.last_encounter)
+        try:
+            last_time = datetime.fromisoformat(self.last_encounter)
+        except (ValueError, TypeError):
+            # If last_encounter has invalid format, allow encounter
+            return True
+        
+        # Validate cooldown_minutes for reasonable values (1-60 minutes)
+        cooldown_minutes = max(1, min(cooldown_minutes, 60))
         cooldown = timedelta(minutes=cooldown_minutes)
         
         return datetime.now() - last_time >= cooldown
     
-    def get_cooldown_remaining(self, cooldown_minutes: int = 5) -> int:
-        """Get remaining cooldown time in minutes"""
+    def get_cooldown_remaining_seconds(self, cooldown_minutes: int = 5) -> int:
+        """Get remaining cooldown time in seconds"""
         if not self.last_encounter:
             return 0
         
-        last_time = datetime.fromisoformat(self.last_encounter)
+        try:
+            last_time = datetime.fromisoformat(self.last_encounter)
+        except (ValueError, TypeError):
+            # If last_encounter has invalid format, treat as no cooldown
+            return 0
+        
+        # Validate cooldown_minutes for reasonable values (1-60 minutes)
+        cooldown_minutes = max(1, min(cooldown_minutes, 60))
+        
         next_encounter = last_time + timedelta(minutes=cooldown_minutes)
         time_left = next_encounter - datetime.now()
         
-        return max(0, int(time_left.total_seconds() / 60))
+        # Use round() instead of int() to handle floating point precision better
+        return max(0, round(time_left.total_seconds()))
     
     def add_encounter(self, pokemon: PokemonData):
         """Set current encounter and update stats"""
