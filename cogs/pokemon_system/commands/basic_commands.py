@@ -62,7 +62,6 @@ class BasicPokemonCommands:
         embed = PokemonEmbedUtils.create_encounter_embed(
             pokemon=pokemon,
             user=unified_ctx.author,
-            encounter_type="encounter"
         )
         
         await unified_ctx.send(embed=embed)

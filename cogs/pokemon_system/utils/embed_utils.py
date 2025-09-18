@@ -57,7 +57,7 @@ class PokemonEmbedUtils:
         return embed
     
     @staticmethod
-    def create_encounter_embed(pokemon: PokemonData, user: discord.Member, encounter_type: str = "encounter") -> discord.Embed:
+    def create_encounter_embed(pokemon: PokemonData, user: discord.Member) -> discord.Embed:
         """Create embed for personal Pokemon encounter"""
         embed = discord.Embed(
             title=f"🌿 Wild {pokemon.name} Appeared!",
