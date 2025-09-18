@@ -40,7 +40,8 @@ class CollectionPokemonCommands:
             embed = PokemonEmbedUtils.create_collection_embed(
                 player_name=user.display_name,
                 pokemon_collection=[],  # Empty collection
-                is_own_collection=is_own_collection
+                is_own_collection=is_own_collection,
+                user_mention=user.mention
             )
             await unified_ctx.send(embed=embed)
             return True
@@ -49,7 +50,8 @@ class CollectionPokemonCommands:
         embed = PokemonEmbedUtils.create_collection_embed(
             player_name=user.display_name,
             pokemon_collection=player.pokemon_collection,
-            is_own_collection=is_own_collection
+            is_own_collection=is_own_collection,
+            user_mention=user.mention
         )
         
         await unified_ctx.send(embed=embed)
@@ -185,7 +187,8 @@ class CollectionPokemonCommands:
         # Create detailed Pokemon embed
         embed = PokemonEmbedUtils.create_pokemon_detail_embed(
             pokemon=found_pokemon,
-            player_name=unified_ctx.author.display_name
+            player_name=unified_ctx.author.display_name,
+            user_mention=unified_ctx.author.mention
         )
         
         await unified_ctx.send(embed=embed)

@@ -50,24 +50,24 @@ class PokemonEmbedUtils:
             inline=False
         )
         
-        # Simple footer
-        embed.set_footer(text=f"Wild Pokemon Event • Gen {pokemon.generation} • Next spawn in 30 minutes")
+        # Static footer
+        embed.set_footer(text=f"Wild Pokemon Event • Gen {pokemon.generation} • Legion Pokemon System")
         embed.set_author(name="Legion Pokemon", icon_url="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png")
         
         return embed
     
     @staticmethod
-    def create_encounter_embed(pokemon: PokemonData, player_name: str, player_avatar_url: str, encounter_type: str = "encounter", player_display_name: str = None) -> discord.Embed:
+    def create_encounter_embed(pokemon: PokemonData, user: discord.Member, encounter_type: str = "encounter") -> discord.Embed:
         """Create embed for personal Pokemon encounter"""
         embed = discord.Embed(
             title=f"🌿 Wild {pokemon.name} Appeared!",
-            description=f"**{player_name}** encountered a wild **{pokemon.name}**!\n\n*{pokemon.description}*\n\n**This is your personal encounter - only you can catch it!**",
+            description=f"**{user.mention}** encountered a wild **{pokemon.name}**!\n\n*{pokemon.description}*\n\n**This is your personal encounter - only you can catch it!**",
             color=PokemonTypeUtils.get_type_color(pokemon.types)
         )
         
         # Add Pokemon image
         embed.set_image(url=pokemon.image_url)
-        embed.set_thumbnail(url=player_avatar_url)
+        embed.set_thumbnail(url=user.display_avatar.url)
         
         # Format types
         type_text = PokemonTypeUtils.format_types(pokemon.types)
@@ -88,23 +88,25 @@ class PokemonEmbedUtils:
         # Simple capture instructions
         embed.add_field(name="🎯 How to Catch", value="Use `!catch normal` or `!catch master` to attempt capture!", inline=False)
         
-        # Clean footer - use display name instead of mention since footers don't support mentions
-        footer_name = player_display_name if player_display_name else player_name.replace('<@', '').replace('>', '')
-        embed.set_footer(text=f"Personal encounter for {footer_name} • Gen {pokemon.generation} • Use !catch to capture")
+        # Add user info as a field (where mentions work)
+        embed.add_field(name="👤 Trainer", value=user.mention, inline=True)
+        
+        # Static footer
+        embed.set_footer(text=f"Personal Encounter • Gen {pokemon.generation} • Legion Pokemon System")
         embed.set_author(name="Legion Pokemon", icon_url="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png")
         
         return embed
     
     @staticmethod
-    def create_catch_success_embed(pokemon: PokemonData, player_name: str, player_avatar_url: str, ball_type: str, collection_id: int, total_caught: int, player_display_name: str = None) -> discord.Embed:
+    def create_catch_success_embed(pokemon: PokemonData, user: discord.Member, ball_type: str, collection_id: int, total_caught: int) -> discord.Embed:
         """Create embed for successful Pokemon catch"""
         embed = discord.Embed(
             title="🎉 Pokemon Caught!",
-            description=f"**Congratulations {player_name}!**\n\nYou successfully caught **{pokemon.name}**!\nIt's now part of your collection.",
+            description=f"**Congratulations {user.mention}!**\n\nYou successfully caught **{pokemon.name}**!\nIt's now part of your collection.",
             color=PokemonTypeUtils.get_type_color(pokemon.types)
         )
         embed.set_image(url=pokemon.image_url)
-        embed.set_thumbnail(url=player_avatar_url)
+        embed.set_thumbnail(url=user.display_avatar.url)
         
         # Add Pokemon info
         embed.add_field(name="Type", value=PokemonTypeUtils.format_types(pokemon.types), inline=True)
@@ -122,10 +124,10 @@ class PokemonEmbedUtils:
         embed.add_field(name="🏆 Collection Progress", value=f"Total Pokemon: {total_caught}", inline=False)
         
         # Add caught by info as a field (where mentions work)
-        embed.add_field(name="👤 Caught By", value=player_name, inline=True)
+        embed.add_field(name="👤 Caught By", value=user.mention, inline=True)
         
-        # Simple footer without user info
-        embed.set_footer(text="Legion Pokemon System")
+        # Static footer
+        embed.set_footer(text="Pokemon Caught • Legion Pokemon System")
         embed.set_author(name="Legion Pokemon", icon_url="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png")
         
         return embed
@@ -147,7 +149,7 @@ class PokemonEmbedUtils:
         return embed
     
     @staticmethod
-    def create_collection_embed(player_name: str, pokemon_collection: List[CaughtPokemon], is_own_collection: bool = True) -> discord.Embed:
+    def create_collection_embed(player_name: str, pokemon_collection: List[CaughtPokemon], is_own_collection: bool = True, user_mention: str = None) -> discord.Embed:
         """Create embed for Pokemon collection display"""
         title = f"📖 {player_name}'s Collection" if is_own_collection else f"📖 {player_name}'s Collection"
         
@@ -212,6 +214,10 @@ class PokemonEmbedUtils:
             inline=False
         )
         
+        # Add user info as a field (where mentions work)
+        if user_mention:
+            embed.add_field(name="👤 Collection Owner", value=user_mention, inline=True)
+        
         # Add simple image display
         if pokemon_collection:
             # Find the most recent Pokemon
@@ -219,12 +225,13 @@ class PokemonEmbedUtils:
             
             # Set the image
             embed.set_image(url=display_pokemon.image_url)
-            embed.set_footer(text=f"Showing {display_pokemon.name} • {player_name}")
+            # Static footer
+            embed.set_footer(text=f"Showing {display_pokemon.name} • Legion Pokemon System")
         
         return embed
     
     @staticmethod
-    def create_pokemon_detail_embed(pokemon: CaughtPokemon, player_name: str) -> discord.Embed:
+    def create_pokemon_detail_embed(pokemon: CaughtPokemon, player_name: str, user_mention: str = None) -> discord.Embed:
         """Create detailed embed for a specific Pokemon"""
         embed = discord.Embed(
             title=f"📋 {pokemon.name} - Details",
@@ -257,6 +264,11 @@ class PokemonEmbedUtils:
         )
         embed.add_field(name="📊 Base Stats", value=stats_text, inline=False)
         
-        embed.set_footer(text=f"Requested by {player_name}")
+        # Add user info as a field (where mentions work)
+        if user_mention:
+            embed.add_field(name="👤 Requested By", value=user_mention, inline=True)
+        
+        # Static footer
+        embed.set_footer(text="Pokemon Details • Legion Pokemon System")
         
         return embed

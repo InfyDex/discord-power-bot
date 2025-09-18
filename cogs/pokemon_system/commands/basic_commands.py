@@ -61,9 +61,7 @@ class BasicPokemonCommands:
         # Create and send embed
         embed = PokemonEmbedUtils.create_encounter_embed(
             pokemon=pokemon,
-            player_name=unified_ctx.author.mention,
-            player_display_name=unified_ctx.author.display_name,
-            player_avatar_url=unified_ctx.author.display_avatar.url,
+            user=unified_ctx.author,
             encounter_type="encounter"
         )
         
@@ -125,9 +123,7 @@ class BasicPokemonCommands:
         if success:
             embed = PokemonEmbedUtils.create_catch_success_embed(
                 pokemon=pokemon,
-                player_name=unified_ctx.author.mention,
-                player_display_name=unified_ctx.author.display_name,
-                player_avatar_url=unified_ctx.author.display_avatar.url,
+                user=unified_ctx.author,
                 ball_type=ball_type,
                 collection_id=len(player.pokemon_collection),
                 total_caught=len(player.pokemon_collection)
