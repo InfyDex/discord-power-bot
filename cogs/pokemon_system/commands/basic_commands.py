@@ -159,6 +159,19 @@ class BasicPokemonCommands:
             )
             await unified_ctx.send_error(embed)
             return False
+        elif reason == "catch_limit_reached":
+            remaining_catches = player.get_remaining_catches()
+            cooldown_time = player.get_catch_cooldown_remaining()
+            
+            embed = discord.Embed(
+                title="🕒 Catch Limit Reached",
+                description=f"You've reached your hourly catch limit (5 Pokemon per hour).\n\n"
+                           f"**Remaining catches:** {remaining_catches}/5\n"
+                           f"**Next catch available in:** {cooldown_time if cooldown_time else 'Soon'}",
+                color=discord.Color.orange()
+            )
+            await unified_ctx.send_error(embed)
+            return False
         elif reason == "no_pokeball":
             # Get the normalized ball type and proper name
             normalized_ball_type = player.inventory._normalize_ball_type(ball_type)
@@ -224,9 +237,24 @@ class BasicPokemonCommands:
             return False
         
         # Check if player has pokeballs
-        if not player.inventory.has_pokeball("normal"):
-            embed = ErrorUtils.create_insufficient_items_embed("Normal Pokeballs")
-            embed.description = "You don't have any Normal Pokeballs left! Wild Pokemon can only be caught with Normal Pokeballs."
+        if not player.inventory.has_pokeball("poke"):  # Updated to use poke
+            embed = ErrorUtils.create_insufficient_items_embed("Poké Balls")
+            embed.description = "You don't have any Poké Balls left! Wild Pokemon can only be caught with Poké Balls."
+            await unified_ctx.send_error(embed)
+            return False
+        
+        # Check catch limit (5 catches per hour)
+        if not player.can_catch():
+            remaining_catches = player.get_remaining_catches()
+            cooldown_time = player.get_catch_cooldown_remaining()
+            
+            embed = discord.Embed(
+                title="🕒 Catch Limit Reached",
+                description=f"You've reached your hourly catch limit (5 Pokemon per hour).\n\n"
+                           f"**Remaining catches:** {remaining_catches}/5\n"
+                           f"**Next catch available in:** {cooldown_time if cooldown_time else 'Soon'}",
+                color=discord.Color.orange()
+            )
             await unified_ctx.send_error(embed)
             return False
         
@@ -281,8 +309,8 @@ class BasicPokemonCommands:
             embed.add_field(name="Still Available", value="The Pokemon is still available for others to catch!", inline=False)
         
         # Add remaining pokeball count
-        remaining_balls = player.inventory.normal_pokeballs
-        embed.add_field(name="Normal Pokeballs Remaining", value=f"{remaining_balls}", inline=True)
+        remaining_balls = player.inventory.poke_balls
+        embed.add_field(name="Poké Balls Remaining", value=f"{remaining_balls}", inline=True)
         
         await unified_ctx.send(embed=embed)
         return success

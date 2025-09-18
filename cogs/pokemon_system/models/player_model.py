@@ -209,6 +209,9 @@ class PlayerData:
         self.current_encounter: Optional[PokemonData] = None
         self.encounter_catch_attempted: bool = False  # Track if user attempted to catch current encounter
         
+        # Catch history for hourly limits (5 catches per hour)
+        self.catch_history: List[str] = data.get("catch_history", [])
+        
         # Load caught Pokemon
         if "pokemon" in data:
             for pokemon_data in data["pokemon"]:
@@ -236,6 +239,7 @@ class PlayerData:
                 "normal": 5
             },
             "last_encounter": None,
+            "catch_history": [],
             "stats": {
                 "total_caught": 0,
                 "total_encounters": 0,
@@ -318,6 +322,75 @@ class PlayerData:
         else:
             return f"{seconds}s"
     
+    def can_catch(self, max_catches_per_hour: int = 5) -> bool:
+        """Check if player can catch Pokemon (5 catches per hour limit)"""
+        self._cleanup_old_catches()
+        return len(self.catch_history) < max_catches_per_hour
+    
+    def get_remaining_catches(self, max_catches_per_hour: int = 5) -> int:
+        """Get number of catches remaining in current hour"""
+        self._cleanup_old_catches()
+        return max(0, max_catches_per_hour - len(self.catch_history))
+    
+    def add_catch_to_history(self):
+        """Add current timestamp to catch history"""
+        self.catch_history.append(datetime.now().isoformat())
+    
+    def get_catch_cooldown_remaining(self) -> Optional[str]:
+        """Get time until catch limit resets (when oldest catch expires)"""
+        if not self.catch_history:
+            return None
+        
+        self._cleanup_old_catches()
+        
+        # If still at catch limit after cleanup, find when oldest catch expires
+        if len(self.catch_history) >= 5:
+            try:
+                oldest_catch = datetime.fromisoformat(self.catch_history[0])
+                reset_time = oldest_catch + timedelta(hours=1)
+                time_left = reset_time - datetime.now()
+                
+                if time_left.total_seconds() <= 0:
+                    return None
+                
+                total_seconds = max(0, round(time_left.total_seconds()))
+                
+                minutes = total_seconds // 60
+                seconds = total_seconds % 60
+                
+                if minutes > 0:
+                    if seconds > 0:
+                        return f"{minutes}m {seconds}s"
+                    else:
+                        return f"{minutes}m"
+                else:
+                    return f"{seconds}s"
+            except (ValueError, TypeError):
+                # If timestamp is invalid, allow catching
+                return None
+        
+        return None
+    
+    def _cleanup_old_catches(self):
+        """Remove entire catch history if any entry is older than 1 hour"""
+        if not self.catch_history:
+            return
+        
+        current_time = datetime.now()
+        
+        # Check if any catch is older than 1 hour
+        for catch_time_str in self.catch_history:
+            try:
+                catch_time = datetime.fromisoformat(catch_time_str)
+                # If any catch is older than 1 hour, clear entire history
+                if current_time - catch_time >= timedelta(hours=1):
+                    self.catch_history = []
+                    return
+            except (ValueError, TypeError):
+                # If any timestamp is invalid, clear entire history
+                self.catch_history = []
+                return
+    
     def add_encounter(self, pokemon: PokemonData):
         """Set current encounter and update stats"""
         self.current_encounter = pokemon
@@ -347,6 +420,10 @@ class PlayerData:
         # Check if already attempted to catch this encounter
         if self.encounter_catch_attempted:
             return False, "already_attempted", catch_details
+        
+        # Check catch limit (5 catches per hour)
+        if not self.can_catch():
+            return False, "catch_limit_reached", catch_details
         
         # Normalize ball type
         ball_type = self.inventory._normalize_ball_type(ball_type)
@@ -400,6 +477,8 @@ class PlayerData:
             )
             self.pokemon_collection.append(caught_pokemon)
             self.stats.add_catch()
+            # Add to catch history for hourly limit tracking
+            self.add_catch_to_history()
             self.current_encounter = None  # Clear encounter
             self.encounter_catch_attempted = False  # Reset flag when encounter is cleared
             return True, "success", catch_details
@@ -408,7 +487,11 @@ class PlayerData:
     
     def catch_wild_pokemon(self, pokemon: PokemonData) -> bool:
         """Catch a wild Pokemon (different from personal encounters)"""
-        if not self.inventory.use_pokeball("normal"):
+        # Check catch limit (5 catches per hour)
+        if not self.can_catch():
+            return False
+        
+        if not self.inventory.use_pokeball("poke"):  # Updated to use poke instead of normal
             return False
         
         # Wild Pokemon always use normal catch rate
@@ -421,11 +504,13 @@ class PlayerData:
                 pokemon_data=pokemon,
                 collection_id=collection_id,
                 caught_date=datetime.now().isoformat(),
-                caught_with="normal",
+                caught_with="poke",  # Updated to use poke instead of normal
                 caught_from="wild_spawn"
             )
             self.pokemon_collection.append(caught_pokemon)
             self.stats.add_catch()
+            # Add to catch history for hourly limit tracking
+            self.add_catch_to_history()
         
         return success
     
@@ -456,6 +541,7 @@ class PlayerData:
             "pokemon": pokemon_list,
             "pokeballs": self.inventory.to_dict(),
             "last_encounter": self.last_encounter,
+            "catch_history": self.catch_history,
             "stats": self.stats.to_dict(),
             "encounter_catch_attempted": self.encounter_catch_attempted
         }

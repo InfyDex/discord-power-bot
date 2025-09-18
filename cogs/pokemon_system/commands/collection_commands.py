@@ -1,6 +1,23 @@
 """
 Collection Pokemon Commands
-Handles commands related to viewing and managing Pokemon collections.
+Handles commands related to viewing and managing Pokemon collectio        embed.add_field(name="� Pokeball Inventory", value=pokeball_text, inline=True)
+        
+        # Catch Limit Information
+        remaining_catches = player.get_remaining_catches()
+        cooldown_time = player.get_catch_cooldown_remaining()
+        
+        if remaining_catches == 5:
+            catch_limit_text = "✅ Full catch limit available (5/5)"
+        elif remaining_catches > 0:
+            catch_limit_text = f"⚠️ {remaining_catches}/5 catches remaining"
+            if cooldown_time:
+                catch_limit_text += f"\nNext reset: {cooldown_time}"
+        else:
+            catch_limit_text = "🚫 Catch limit reached (0/5)"
+            if cooldown_time:
+                catch_limit_text += f"\nNext reset: {cooldown_time}"
+        
+        embed.add_field(name="🕒 Hourly Catch Limit", value=catch_limit_text, inline=True)s.
 """
 
 import discord
