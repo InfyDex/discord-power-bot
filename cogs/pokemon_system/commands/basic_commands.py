@@ -126,8 +126,6 @@ class BasicPokemonCommands:
                 pokemon=pokemon,
                 player_name=unified_ctx.author.mention,
                 player_avatar_url=unified_ctx.author.display_avatar.url,
-                ball_type=ball_type,
-                collection_id=len(player.pokemon_collection),
                 total_caught=len(player.pokemon_collection)
             )
         else:
