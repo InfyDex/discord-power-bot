@@ -198,8 +198,8 @@ class BasicPokemonCommands:
             
             embed = discord.Embed(
                 title="🕒 Catch Limit Reached",
-                description=f"You've reached your hourly catch limit (5 Pokemon per hour).\n\n"
-                           f"**Remaining catches:** {remaining_catches}/5\n"
+                description=f"You've reached your hourly catch limit (3 Pokemon per hour).\n\n"
+                           f"**Remaining catches:** {remaining_catches}/3\n"
                            f"**Next catch available in:** {cooldown_time if cooldown_time else 'Soon'}",
                 color=discord.Color.orange()
             )
@@ -283,8 +283,8 @@ class BasicPokemonCommands:
             
             embed = discord.Embed(
                 title="🕒 Catch Limit Reached",
-                description=f"You've reached your hourly catch limit (5 Pokemon per hour).\n\n"
-                           f"**Remaining catches:** {remaining_catches}/5\n"
+                description=f"You've reached your hourly catch limit (3 Pokemon per hour).\n\n"
+                           f"**Remaining catches:** {remaining_catches}/3\n"
                            f"**Next catch available in:** {cooldown_time if cooldown_time else 'Soon'}",
                 color=discord.Color.orange()
             )
