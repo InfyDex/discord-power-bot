@@ -12,9 +12,10 @@ from ..models.player_model import PlayerData
 class PlayerDataManager:
     """Manages player data operations"""
     
-    def __init__(self, data_file: str = "pokemon_data.json"):
+    def __init__(self, data_file: str = "pokemon_data.json", mongo_db=None):
         self.data_file = data_file
         self.players: Dict[str, PlayerData] = {}
+        self.mongo_db = mongo_db
         self.load_all_player_data()
     
     def load_all_player_data(self) -> bool:
@@ -30,7 +31,7 @@ class PlayerDataManager:
             # Convert raw data to PlayerData objects
             self.players = {}
             for user_id, player_data in raw_data.items():
-                self.players[user_id] = PlayerData(user_id, player_data)
+                self.players[user_id] = PlayerData(user_id, player_data, mongo_db=self.mongo_db)
             
             print(f"Loaded data for {len(self.players)} players")
             return True
@@ -62,7 +63,7 @@ class PlayerDataManager:
     def get_player(self, user_id: str) -> PlayerData:
         """Get player data, creating new player if doesn't exist"""
         if user_id not in self.players:
-            self.players[user_id] = PlayerData(user_id)
+            self.players[user_id] = PlayerData(user_id, mongo_db=self.mongo_db)
             self.save_all_player_data()  # Save immediately when creating new player
         
         return self.players[user_id]
@@ -150,54 +151,6 @@ class PlayerDataManager:
                     rarity_counts[pokemon.rarity] += 1
         
         return rarity_counts
-    
-    def backup_data(self, backup_file: str = None) -> bool:
-        """Create a backup of player data"""
-        if backup_file is None:
-            from datetime import datetime
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            backup_file = f"pokemon_data_backup_{timestamp}.json"
-        
-        try:
-            # Convert PlayerData objects to dictionaries
-            raw_data = {}
-            for user_id, player_data in self.players.items():
-                raw_data[user_id] = player_data.to_dict()
-            
-            with open(backup_file, 'w', encoding='utf-8') as f:
-                json.dump(raw_data, f, indent=2)
-            
-            print(f"Player data backed up to {backup_file}")
-            return True
-            
-        except Exception as e:
-            print(f"Error creating backup: {e}")
-            return False
-    
-    def restore_from_backup(self, backup_file: str) -> bool:
-        """Restore player data from backup file"""
-        try:
-            if not os.path.exists(backup_file):
-                print(f"Backup file {backup_file} not found!")
-                return False
-            
-            with open(backup_file, 'r', encoding='utf-8') as f:
-                raw_data = json.load(f)
-            
-            # Convert raw data to PlayerData objects
-            self.players = {}
-            for user_id, player_data in raw_data.items():
-                self.players[user_id] = PlayerData(user_id, player_data)
-            
-            # Save restored data
-            self.save_all_player_data()
-            
-            print(f"Restored data for {len(self.players)} players from {backup_file}")
-            return True
-            
-        except Exception as e:
-            print(f"Error restoring from backup: {e}")
-            return False
     
     @property
     def total_players(self) -> int:

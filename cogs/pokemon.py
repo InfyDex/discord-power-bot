@@ -9,6 +9,7 @@ from discord import app_commands
 from discord.ext import commands
 from .pokemon_system.managers import PokemonDatabaseManager, PlayerDataManager, WildSpawnManager
 from .pokemon_system.commands import BasicPokemonCommands, CollectionPokemonCommands, AdminPokemonCommands, LeaderboardCommands, ShopCommands
+from .pokemon_system.utils.mongo_manager import MongoManager
 
 class Pokemon(commands.Cog):
     """Cog for Pokemon game functionality - Refactored Modular Version"""
@@ -18,13 +19,14 @@ class Pokemon(commands.Cog):
         
         # Initialize managers
         self.pokemon_db = PokemonDatabaseManager("pokemon_master_database.json")
-        self.player_db = PlayerDataManager("pokemon_data.json")
         self.wild_spawn = WildSpawnManager("wild_spawn_data.json")
+        self.mongo_db = MongoManager()  # Initialize MongoDB connection
+        self.player_db = PlayerDataManager("pokemon_data.json", mongo_db=self.mongo_db)
         
         # Initialize command groups
-        self.basic_commands = BasicPokemonCommands(self.pokemon_db, self.player_db, self.wild_spawn)
-        self.collection_commands = CollectionPokemonCommands(self.pokemon_db, self.player_db)
-        self.admin_commands = AdminPokemonCommands(self.pokemon_db, self.player_db, self.wild_spawn)
+        self.basic_commands = BasicPokemonCommands(self.pokemon_db, self.player_db, self.wild_spawn, self.mongo_db)
+        self.collection_commands = CollectionPokemonCommands(self.pokemon_db, self.player_db, self.mongo_db)
+        self.admin_commands = AdminPokemonCommands(self.pokemon_db, self.player_db, self.wild_spawn, self.mongo_db)
         self.leaderboard_commands = LeaderboardCommands(bot)
         self.shop_commands = ShopCommands(self.pokemon_db, self.player_db)
         

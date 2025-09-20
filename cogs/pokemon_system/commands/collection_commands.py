@@ -3,14 +3,16 @@ from datetime import datetime
 from ..managers import PokemonDatabaseManager, PlayerDataManager
 from ..utils import PokemonEmbedUtils, PokemonTypeUtils
 from ..utils.interaction_utils import UnifiedContext, create_unified_context
+from ..models.pokemon_model import CaughtPokemon, PokemonData
 
 
 class CollectionPokemonCommands:
     """Contains Pokemon collection management commands with shared logic architecture"""
     
-    def __init__(self, pokemon_db: PokemonDatabaseManager, player_db: PlayerDataManager):
+    def __init__(self, pokemon_db: PokemonDatabaseManager, player_db: PlayerDataManager, mongo_db=None):
         self.pokemon_db = pokemon_db
         self.player_db = player_db
+        self.mongo_db = mongo_db
     
     # ========== SHARED LOGIC FUNCTIONS ==========
     
@@ -27,24 +29,16 @@ class CollectionPokemonCommands:
         else:
             user_id = str(user.id)
             is_own_collection = (user.id == unified_ctx.author.id)
-        
-        player = self.player_db.get_player(user_id)
-        
-        if not player.pokemon_collection:
-            # Use the embed utility which already handles empty collections
-            embed = PokemonEmbedUtils.create_collection_embed(
-                player_name=user.display_name,
-                pokemon_collection=[],  # Empty collection
-                is_own_collection=is_own_collection,
-                user_mention=user.mention
-            )
-            await unified_ctx.send(embed=embed)
-            return True
+        pokemon_collection = []
+        caught_pokemons = self.mongo_db.get_pokemon_by_owner(user_id)
+        for pokemon_data in caught_pokemons:
+            caught_pokemon = CaughtPokemon.from_dict(pokemon_data)
+            pokemon_collection.append(caught_pokemon)
         
         # Create collection embed
         embed = PokemonEmbedUtils.create_collection_embed(
             player_name=user.display_name,
-            pokemon_collection=player.pokemon_collection,
+            pokemon_collection=pokemon_collection,
             is_own_collection=is_own_collection,
             user_mention=user.mention
         )

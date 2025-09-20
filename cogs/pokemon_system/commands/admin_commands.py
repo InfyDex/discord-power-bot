@@ -12,10 +12,11 @@ from config import Config
 class AdminPokemonCommands:
     """Contains administrative Pokemon commands"""
     
-    def __init__(self, pokemon_db: PokemonDatabaseManager, player_db: PlayerDataManager, wild_spawn: WildSpawnManager):
+    def __init__(self, pokemon_db: PokemonDatabaseManager, player_db: PlayerDataManager, wild_spawn: WildSpawnManager, mongo_db=None):
         self.pokemon_db = pokemon_db
         self.player_db = player_db
         self.wild_spawn = wild_spawn
+        self.mongo_db = mongo_db
     
     async def pokemon_admin(self, ctx):
         """Admin command to view Pokemon database statistics"""

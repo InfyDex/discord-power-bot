@@ -17,10 +17,11 @@ from config import Config
 class BasicPokemonCommands:
     """Contains basic Pokemon gameplay commands with shared logic architecture"""
     
-    def __init__(self, pokemon_db: PokemonDatabaseManager, player_db: PlayerDataManager, wild_spawn: WildSpawnManager):
+    def __init__(self, pokemon_db: PokemonDatabaseManager, player_db: PlayerDataManager, wild_spawn: WildSpawnManager, mongo_db=None):
         self.pokemon_db = pokemon_db
         self.player_db = player_db
         self.wild_spawn = wild_spawn
+        self.mongo_db = mongo_db
         
         # Setup logging
         self.logger = Config.setup_logging()
@@ -144,6 +145,38 @@ class BasicPokemonCommands:
         # Attempt to catch the Pokemon
         pokemon = player.current_encounter
         success, reason, catch_details = player.catch_pokemon(ball_type)
+        
+        # Store the Pokemon in MongoDB only (no longer storing in JSON)
+        if success:
+            # Store Pokemon data as individual fields (flattened structure)
+            pokemon_dict = {}
+            
+            # Get Pokemon data
+            if hasattr(pokemon, "to_dict"):
+                pokemon_data = pokemon.to_dict()
+            else:
+                pokemon_data = pokemon.__dict__
+                
+            # Add all Pokemon data fields directly to the root level
+            pokemon_dict.update(pokemon_data)
+            
+            # Remove catch_rate as it's not needed in storage
+            if "catch_rate" in pokemon_dict:
+                del pokemon_dict["catch_rate"]
+            
+            print(f"DEBUG: Player {user_id} has {len(player.pokemon_collection)} Pokemon in collection before catch")
+            pokemon_dict["id"] = len(player.pokemon_collection) + 1
+            
+            # Add metadata
+            pokemon_dict["owner_id"] = user_id
+            pokemon_dict["caught_date"] = datetime.now().isoformat()
+            pokemon_dict["caught_with"] = ball_type
+            pokemon_dict["caught_from"] = "encounter"
+            
+            self.mongo_db.add_pokemon(pokemon_dict)
+            player.pokemon_collection.append(pokemon)  # Update in-memory collection for immediate feedback
+            
+        # Still save player data (but without the Pokemon)
         self.player_db.save_player(user_id)
         
         # Log comprehensive catch information
@@ -269,7 +302,7 @@ class BasicPokemonCommands:
             await unified_ctx.send_error(embed)
             return False
         
-        # Attempt to catch
+        ball_type = "poke"
         success = player.catch_wild_pokemon(wild_pokemon)
         self.player_db.save_player(user_id)
         
@@ -279,6 +312,34 @@ class BasicPokemonCommands:
         if success:
             # Mark as caught in wild spawn system
             self.wild_spawn.mark_pokemon_caught(user_id, unified_ctx.author.display_name)
+            
+            # Store Pokemon in MongoDB
+            pokemon_dict = {}
+            
+            # Get Pokemon data
+            if hasattr(wild_pokemon, "to_dict"):
+                pokemon_data = wild_pokemon.to_dict()
+            else:
+                pokemon_data = wild_pokemon.__dict__
+                
+            # Add all Pokemon data fields directly to the root level
+            pokemon_dict.update(pokemon_data)
+            
+            # Remove catch_rate as it's not needed in storage
+            if "catch_rate" in pokemon_dict:
+                del pokemon_dict["catch_rate"]
+            
+            print(f"DEBUG: Player {user_id} has {len(player.pokemon_collection)} Pokemon in collection before catch")
+            pokemon_dict["id"] = len(player.pokemon_collection)
+            
+            # Add metadata
+            pokemon_dict["owner_id"] = user_id
+            pokemon_dict["caught_date"] = datetime.now().isoformat()
+            pokemon_dict["caught_with"] = ball_type
+            pokemon_dict["caught_from"] = "wild_spawn"
+            
+            self.mongo_db.add_pokemon(pokemon_dict)
+            player.pokemon_collection.append(wild_pokemon)  # Update in-memory collection for immediate feedback
             
             embed = discord.Embed(
                 title="🎉 Pokemon Caught!",

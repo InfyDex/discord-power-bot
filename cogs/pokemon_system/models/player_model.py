@@ -196,8 +196,9 @@ class PlayerStats:
 class PlayerData:
     """Complete player data management"""
     
-    def __init__(self, user_id: str, data: Dict[str, Any] = None):
+    def __init__(self, user_id: str, data: Dict[str, Any] = None, mongo_db=None):
         self.user_id = user_id
+        self.mongo_db = mongo_db
         
         if data is None:
             data = self._get_default_data()
@@ -216,9 +217,9 @@ class PlayerData:
         self.pokecoins: int = data.get("pokecoins", 0)
         self.last_daily_claim: Optional[str] = data.get("last_daily_claim")
         
-        # Load caught Pokemon
-        if "pokemon" in data:
-            for pokemon_data in data["pokemon"]:
+        if self.mongo_db:
+            caught_pokemons = self.mongo_db.get_pokemon_by_owner(self.user_id)
+            for pokemon_data in caught_pokemons:
                 caught_pokemon = CaughtPokemon.from_dict(pokemon_data)
                 self.pokemon_collection.append(caught_pokemon)
         
@@ -233,7 +234,6 @@ class PlayerData:
     def _get_default_data(self) -> Dict[str, Any]:
         """Get default player data for new players"""
         return {
-            "pokemon": [],
             "pokeballs": {
                 "poke": 5,
                 "great": 0,
@@ -558,16 +558,6 @@ class PlayerData:
         }
         
         if success:
-            # Add to collection
-            collection_id = len(self.pokemon_collection) + 1
-            caught_pokemon = CaughtPokemon(
-                pokemon_data=self.current_encounter,
-                collection_id=collection_id,
-                caught_date=datetime.now().isoformat(),
-                caught_with=ball_type,
-                caught_from="encounter"
-            )
-            self.pokemon_collection.append(caught_pokemon)
             self.stats.add_catch()
             # Add to catch history for hourly limit tracking
             self.add_catch_to_history()
@@ -607,8 +597,11 @@ class PlayerData:
         return success
     
     def get_pokemon_by_id(self, collection_id: int) -> Optional[CaughtPokemon]:
-        """Get Pokemon from collection by ID"""
-        return next((p for p in self.pokemon_collection if p.collection_id == collection_id), None)
+        """Get a specific Pokemon by its collection ID"""
+        for pokemon in self.pokemon_collection:
+            if pokemon.collection_id == collection_id:
+                return pokemon
+        return None
     
     def get_pokemon_by_name(self, name: str) -> Optional[CaughtPokemon]:
         """Get Pokemon from collection by name"""
@@ -627,10 +620,8 @@ class PlayerData:
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert player data to dictionary format for JSON storage"""
-        pokemon_list = [pokemon.to_dict() for pokemon in self.pokemon_collection]
         
         data = {
-            "pokemon": pokemon_list,
             "pokeballs": self.inventory.to_dict(),
             "last_encounter": self.last_encounter,
             "catch_history": self.catch_history,
