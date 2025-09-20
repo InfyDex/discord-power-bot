@@ -163,7 +163,7 @@ class Pokemon(commands.Cog):
     # Leaderboard Commands
     @commands.command(name='leaderboard_pokemon', aliases=['lb_pokemon', 'pokemon_leaderboard'])
     async def leaderboard_pokemon(self, ctx):
-        """View the Pokemon collection leaderboard (top 10 by Pokemon count)"""
+        """View the Pokemon collection leaderboard (top 10 by unique Pokemon species)"""
         await self.leaderboard_commands.leaderboard_pokemon(ctx)
     
     @commands.command(name='leaderboard_power', aliases=['lb_power', 'power_leaderboard'])

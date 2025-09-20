@@ -110,8 +110,11 @@ class LeaderboardCommands:
             return {}
     
     def _calculate_pokemon_count(self, player_data: Dict) -> int:
-        """Calculate total Pokemon count for a player"""
-        return len(player_data.get('pokemon', []))
+        """Calculate unique Pokemon species count for a player"""
+        pokemon_names = set()
+        for pokemon in player_data.get('pokemon', []):
+            pokemon_names.add(pokemon.get('name', ''))
+        return len(pokemon_names)
     
     def _calculate_total_power(self, player_data: Dict, pokemon_db: Dict) -> int:
         """Calculate total power level of all Pokemon for a player"""
@@ -331,7 +334,7 @@ class LeaderboardCommands:
         embed = self._create_leaderboard_embed(
             leaderboard_data,
             "Pokemon Collection Leaderboard",
-            "Top 10 players by total Pokemon collected"
+            "Top 10 players by unique Pokemon species collected"
         )
         await unified_ctx.send(embed=embed)
     
