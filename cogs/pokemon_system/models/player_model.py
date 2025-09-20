@@ -209,7 +209,7 @@ class PlayerData:
         self.current_encounter: Optional[PokemonData] = None
         self.encounter_catch_attempted: bool = False  # Track if user attempted to catch current encounter
         
-        # Catch history for hourly limits (5 catches per hour)
+        # Catch history for hourly window limits (3 catches per hour window)
         self.catch_history: List[str] = data.get("catch_history", [])
         
         # Currency system (PokéCoins)
@@ -328,74 +328,94 @@ class PlayerData:
         else:
             return f"{seconds}s"
     
-    def can_catch(self, max_catches_per_hour: int = 5) -> bool:
-        """Check if player can catch Pokemon (5 catches per hour limit)"""
-        self._cleanup_old_catches()
-        return len(self.catch_history) < max_catches_per_hour
+    def can_catch(self, max_catches_per_hour: int = 3) -> bool:
+        """Check if player can catch Pokemon (3 catches per hour window)"""
+        current_hour_catches = self._get_current_hour_catches()
+        return len(current_hour_catches) < max_catches_per_hour
     
-    def get_remaining_catches(self, max_catches_per_hour: int = 5) -> int:
-        """Get number of catches remaining in current hour"""
-        self._cleanup_old_catches()
-        return max(0, max_catches_per_hour - len(self.catch_history))
+    def get_remaining_catches(self, max_catches_per_hour: int = 3) -> int:
+        """Get number of catches remaining in current hour window"""
+        current_hour_catches = self._get_current_hour_catches()
+        return max(0, max_catches_per_hour - len(current_hour_catches))
     
     def add_catch_to_history(self):
         """Add current timestamp to catch history"""
         self.catch_history.append(datetime.now().isoformat())
+        # Clean up old catches to prevent data buildup
+        self._cleanup_old_catches()
     
     def get_catch_cooldown_remaining(self) -> Optional[str]:
-        """Get time until catch limit resets (when oldest catch expires)"""
-        if not self.catch_history:
+        """Get time until next hour window starts"""
+        current_hour_catches = self._get_current_hour_catches()
+        
+        # If not at limit, no cooldown
+        if len(current_hour_catches) < 3:
             return None
         
-        self._cleanup_old_catches()
+        # Calculate time until next hour window
+        current_time = datetime.now()
+        next_hour = current_time.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
+        time_left = next_hour - current_time
         
-        # If still at catch limit after cleanup, find when oldest catch expires
-        if len(self.catch_history) >= 5:
+        if time_left.total_seconds() <= 0:
+            return None
+        
+        total_seconds = max(0, round(time_left.total_seconds()))
+        
+        minutes = total_seconds // 60
+        seconds = total_seconds % 60
+        
+        if minutes > 0:
+            if seconds > 0:
+                return f"{minutes}m {seconds}s"
+            else:
+                return f"{minutes}m"
+        else:
+            return f"{seconds}s"
+    
+    def _get_current_hour_catches(self) -> List[str]:
+        """Get catches from current hour window (e.g., 10:00-10:59)"""
+        if not self.catch_history:
+            return []
+        
+        current_time = datetime.now()
+        current_hour_start = current_time.replace(minute=0, second=0, microsecond=0)
+        current_hour_end = current_hour_start + timedelta(hours=1)
+        
+        current_hour_catches = []
+        
+        for catch_time_str in self.catch_history:
             try:
-                oldest_catch = datetime.fromisoformat(self.catch_history[0])
-                reset_time = oldest_catch + timedelta(hours=1)
-                time_left = reset_time - datetime.now()
-                
-                if time_left.total_seconds() <= 0:
-                    return None
-                
-                total_seconds = max(0, round(time_left.total_seconds()))
-                
-                minutes = total_seconds // 60
-                seconds = total_seconds % 60
-                
-                if minutes > 0:
-                    if seconds > 0:
-                        return f"{minutes}m {seconds}s"
-                    else:
-                        return f"{minutes}m"
-                else:
-                    return f"{seconds}s"
+                catch_time = datetime.fromisoformat(catch_time_str)
+                # Check if catch is within current hour window
+                if current_hour_start <= catch_time < current_hour_end:
+                    current_hour_catches.append(catch_time_str)
             except (ValueError, TypeError):
-                # If timestamp is invalid, allow catching
-                return None
+                # Skip invalid timestamps
+                continue
         
-        return None
+        return current_hour_catches
     
     def _cleanup_old_catches(self):
-        """Remove entire catch history if any entry is older than 1 hour"""
+        """Remove catches older than 24 hours to prevent data buildup"""
         if not self.catch_history:
             return
         
         current_time = datetime.now()
+        cutoff_time = current_time - timedelta(hours=24)
+        new_history = []
         
-        # Check if any catch is older than 1 hour
         for catch_time_str in self.catch_history:
             try:
                 catch_time = datetime.fromisoformat(catch_time_str)
-                # If any catch is older than 1 hour, clear entire history
-                if current_time - catch_time >= timedelta(hours=1):
-                    self.catch_history = []
-                    return
+                # Keep catches from last 24 hours
+                if catch_time > cutoff_time:
+                    new_history.append(catch_time_str)
             except (ValueError, TypeError):
-                # If any timestamp is invalid, clear entire history
-                self.catch_history = []
-                return
+                # Skip invalid timestamps
+                continue
+        
+        self.catch_history = new_history
     
     # ========== CURRENCY SYSTEM ==========
     
@@ -493,7 +513,7 @@ class PlayerData:
         if self.encounter_catch_attempted:
             return False, "already_attempted", catch_details
         
-        # Check catch limit (5 catches per hour)
+        # Check catch limit (3 catches per hour window)
         if not self.can_catch():
             return False, "catch_limit_reached", catch_details
         
@@ -559,7 +579,7 @@ class PlayerData:
     
     def catch_wild_pokemon(self, pokemon: PokemonData) -> bool:
         """Catch a wild Pokemon (different from personal encounters)"""
-        # Check catch limit (5 catches per hour)
+        # Check catch limit (3 catches per hour window)
         if not self.can_catch():
             return False
         
