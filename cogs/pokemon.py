@@ -27,7 +27,7 @@ class Pokemon(commands.Cog):
         self.basic_commands = BasicPokemonCommands(self.pokemon_db, self.player_db, self.wild_spawn, self.mongo_db)
         self.collection_commands = CollectionPokemonCommands(self.pokemon_db, self.player_db, self.mongo_db)
         self.admin_commands = AdminPokemonCommands(self.pokemon_db, self.player_db, self.wild_spawn, self.mongo_db)
-        self.leaderboard_commands = LeaderboardCommands(bot)
+        self.leaderboard_commands = LeaderboardCommands(bot, self.mongo_db)
         self.shop_commands = ShopCommands(self.pokemon_db, self.player_db)
         
         # Track spawn task status

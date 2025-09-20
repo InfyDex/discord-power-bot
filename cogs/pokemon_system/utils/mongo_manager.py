@@ -116,3 +116,20 @@ class MongoManager:
             Number of Pokémon owned by the user
         """
         return self.caught_pokemon.count_documents({"owner_id": owner_id})
+
+    def get_pokemon_grouped_by_owner(self) -> List[Dict[str, Any]]:
+        """
+        Fetch all Pokémon entries grouped by owner_id.
+
+        Returns:
+            List of dicts with owner_id and their Pokémon list.
+        """
+        pipeline = [
+            {
+                "$group": {
+                    "_id": "$owner_id",
+                    "pokemons": {"$push": "$$ROOT"}
+                }
+            }
+        ]
+        return list(self.caught_pokemon.aggregate(pipeline))

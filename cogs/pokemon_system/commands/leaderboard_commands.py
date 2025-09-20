@@ -1,40 +1,31 @@
 """
-Leaderboard commands for Pokemon system.
+Leaderboard commands for Pokémon system.
 Handles different types of leaderboards with shared logic for both prefix and slash commands.
 """
 
+from typing import List, Tuple
+
 import discord
-from discord.ext import commands
-from typing import Dict, List, Tuple, Optional
-import json
-import os
-from ..utils.interaction_utils import create_unified_context
-from ..models.player_model import PlayerData
+
 from config import Config
+from ..models import CaughtPokemon
+from ..utils.interaction_utils import create_unified_context
+from ..utils.mongo_manager import MongoManager
 
 
 class LeaderboardCommands:
     """Handles all leaderboard-related commands with shared logic"""
     
-    def __init__(self, bot):
+    def __init__(self, bot, mongo_db: MongoManager):
         self.bot = bot
-        self.data_file = os.path.join(os.path.dirname(__file__), '..', '..', '..', 'pokemon_data.json')
-        self.pokemon_db_file = os.path.join(os.path.dirname(__file__), '..', '..', '..', 'pokemon_master_database.json')
-        
+        self.mongo_db = mongo_db
+
         # Setup logger using Config
         self.logger = Config.setup_logging()
         
         # Username cache to avoid repeated API calls
         self._username_cache = {}
         self._cache_max_size = 1000  # Limit cache size
-    
-    def _load_data(self) -> Dict:
-        """Load player data from JSON file"""
-        try:
-            with open(self.data_file, 'r') as f:
-                return json.load(f)
-        except (FileNotFoundError, json.JSONDecodeError):
-            return {}
     
     async def _get_username(self, user_id: str) -> str:
         """Get username for a user ID with caching and optimized resolution"""
@@ -78,7 +69,7 @@ class LeaderboardCommands:
             
             # Cache the result (with size limit)
             if len(self._username_cache) >= self._cache_max_size:
-                # Remove oldest entry (simple FIFO)
+                # Remove the oldest entry (simple FIFO)
                 oldest_key = next(iter(self._username_cache))
                 del self._username_cache[oldest_key]
             
@@ -101,42 +92,29 @@ class LeaderboardCommands:
         self._username_cache.clear()
         self.logger.info("Username cache cleared")
     
-    def _load_pokemon_db(self) -> Dict:
-        """Load Pokemon database for rarity calculations"""
-        try:
-            with open(self.pokemon_db_file, 'r') as f:
-                return json.load(f)
-        except (FileNotFoundError, json.JSONDecodeError):
-            return {}
-    
-    def _calculate_pokemon_count(self, player_data: Dict) -> int:
-        """Calculate unique Pokemon species count for a player"""
+    @staticmethod
+    def _calculate_pokemon_count(pokemons: List[CaughtPokemon]) -> int:
+        """Calculate unique Pokémon species count for a player"""
         pokemon_names = set()
-        for pokemon in player_data.get('pokemon', []):
-            pokemon_names.add(pokemon.get('name', ''))
+        for pokemon in pokemons:
+            pokemon_names.add(pokemon.name)
         return len(pokemon_names)
     
-    def _calculate_total_power(self, player_data: Dict, pokemon_db: Dict) -> int:
-        """Calculate total power level of all Pokemon for a player"""
+    @staticmethod
+    def _calculate_total_power(pokemons: List[CaughtPokemon]) -> int:
+        """Calculate total power level of all Pokémon for a player"""
         total_power = 0
-        for pokemon in player_data.get('pokemon', []):
-            # Use the stats directly from the player's Pokemon data
-            stats = pokemon.get('stats', {})
-            if stats:
-                power = (
-                    stats.get('attack', 0) + 
-                    stats.get('defense', 0) + 
-                    stats.get('hp', 0)
-                )
-                total_power += power
+        for pokemon in pokemons:
+            total_power += pokemon.stats.total
         return total_power
     
-    def _calculate_rarity_score(self, player_data: Dict, pokemon_db: Dict) -> int:
-        """Calculate rarity score based on legendary and rare Pokemon"""
+    @staticmethod
+    def _calculate_rarity_score(pokemons: List[CaughtPokemon]) -> int:
+        """Calculate rarity score based on legendary and rare Pokémon"""
         rarity_score = 0
-        for pokemon in player_data.get('pokemon', []):
-            # Use rarity directly from the player's Pokemon data
-            rarity = pokemon.get('rarity', '').lower()
+        for pokemon in pokemons:
+            # Use rarity directly from the player's Pokémon data
+            rarity = pokemon.rarity.lower()
             
             # Score based on rarity field
             if rarity == 'legendary':
@@ -152,31 +130,31 @@ class LeaderboardCommands:
             # Common gets 0 points
             
             # Additional points for high base stats (pseudo-legendary check)
-            stats = pokemon.get('stats', {})
-            total_stats = stats.get('total', 0) or sum(stats.values()) if stats else 0
+            total_stats = pokemon.stats.total
             if total_stats >= 600:
                 rarity_score += 25  # Bonus for pseudo-legendary stats
         return rarity_score
     
     async def _get_leaderboard_data(self, leaderboard_type: str) -> List[Tuple[str, int, str]]:
         """Get leaderboard data for specified type with optimized processing"""
-        data = self._load_data()
-        pokemon_db = self._load_pokemon_db()
+        players = self.mongo_db.get_pokemon_grouped_by_owner()
         
-        self.logger.info(f"Processing {len(data)} players for {leaderboard_type} leaderboard")
+        self.logger.info(f"Processing {len(players)} players for {leaderboard_type} leaderboard")
         
         # Step 1: Calculate scores for all players (fast, no async)
         scores = []
-        for user_id, player_data in data.items():
+        for player in players:
+            caught_pokemon = list(CaughtPokemon.from_dict(p) for p in player.get("pokemons"))
+            user_id = player.get("_id")
             try:
                 if leaderboard_type == "pokemon_count":
-                    score = self._calculate_pokemon_count(player_data)
+                    score = self._calculate_pokemon_count(caught_pokemon)
                     metric = "Pokemon"
                 elif leaderboard_type == "total_power":
-                    score = self._calculate_total_power(player_data, pokemon_db)
+                    score = self._calculate_total_power(caught_pokemon)
                     metric = "Power"
                 elif leaderboard_type == "rarity_score":
-                    score = self._calculate_rarity_score(player_data, pokemon_db)
+                    score = self._calculate_rarity_score(caught_pokemon)
                     metric = "Rarity Score"
                 else:
                     continue
@@ -214,21 +192,21 @@ class LeaderboardCommands:
     
     def _get_user_rank(self, user_id: str, leaderboard_type: str) -> Tuple[int, int, str]:
         """Get individual user's rank in specified leaderboard"""
-        data = self._load_data()
-        pokemon_db = self._load_pokemon_db()
+        players = self.mongo_db.get_pokemon_grouped_by_owner()
         all_scores = []
         
-        for uid, player_data in data.items():
+        for player in players:
+            caught_pokemon = list(CaughtPokemon.from_dict(p) for p in player.get("pokemons"))
             if leaderboard_type == "pokemon_count":
-                score = self._calculate_pokemon_count(player_data)
+                score = self._calculate_pokemon_count(caught_pokemon)
             elif leaderboard_type == "total_power":
-                score = self._calculate_total_power(player_data, pokemon_db)
+                score = self._calculate_total_power(caught_pokemon)
             elif leaderboard_type == "rarity_score":
-                score = self._calculate_rarity_score(player_data, pokemon_db)
+                score = self._calculate_rarity_score(caught_pokemon)
             else:
                 return 0, 0, "Unknown"
             
-            all_scores.append((uid, score))
+            all_scores.append((player.get("_id"), score))
         
         # Sort by score (descending)
         all_scores.sort(key=lambda x: x[1], reverse=True)
@@ -250,8 +228,9 @@ class LeaderboardCommands:
         
         return user_rank, user_score, metric
     
-    def _create_leaderboard_embed(self, leaderboard_data: List[Tuple[str, int, str]], 
-                                 title: str, description: str) -> discord.Embed:
+    @staticmethod
+    def _create_leaderboard_embed(leaderboard_data: List[Tuple[str, int, str]],
+                                  title: str, description: str) -> discord.Embed:
         """Create a formatted embed for leaderboard display"""
         embed = discord.Embed(
             title=f"🏆 {title}",
@@ -288,8 +267,9 @@ class LeaderboardCommands:
         embed.set_footer(text="Use leaderboard rank @user to check individual rankings!")
         return embed
     
-    def _create_rank_embed(self, user: discord.Member, rank: int, score: int, 
-                          metric: str, leaderboard_type: str) -> discord.Embed:
+    @staticmethod
+    def _create_rank_embed(user: discord.Member, rank: int, score: int,
+                           metric: str, leaderboard_type: str) -> discord.Embed:
         """Create embed for individual rank display"""
         type_names = {
             "pokemon_count": "Pokemon Collection",
@@ -329,7 +309,7 @@ class LeaderboardCommands:
 
     # Shared logic functions for different leaderboard types
     async def _leaderboard_pokemon_logic(self, unified_ctx):
-        """Shared logic for Pokemon count leaderboard"""
+        """Shared logic for Pokémon count leaderboard"""
         leaderboard_data = await self._get_leaderboard_data("pokemon_count")
         embed = self._create_leaderboard_embed(
             leaderboard_data,
@@ -366,7 +346,7 @@ class LeaderboardCommands:
 
     # Public methods for prefix commands
     async def leaderboard_pokemon(self, ctx):
-        """Pokemon count leaderboard (prefix command)"""
+        """Pokémon count leaderboard (prefix command)"""
         unified_ctx = create_unified_context(ctx)
         await self._leaderboard_pokemon_logic(unified_ctx)
     
@@ -409,7 +389,7 @@ class LeaderboardCommands:
             color=discord.Color.blue()
         )
         
-        # Pokemon Collection Ranking
+        # Pokémon Collection Ranking
         if pokemon_rank > 0:
             if pokemon_rank == 1:
                 rank_display = "🥇 #1"
