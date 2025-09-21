@@ -6,7 +6,6 @@ Handles environment variables and bot configuration.
 import os
 import logging
 from dotenv import load_dotenv
-from constants import COMMAND_PREFIX
 
 # Load environment variables
 load_dotenv()
