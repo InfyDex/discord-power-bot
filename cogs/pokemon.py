@@ -1411,6 +1411,88 @@ class Pokemon(commands.Cog):
         
         return type_colors.get(pokemon_type, 0x68A090)  # Default color if type not found
 
+    @commands.command(name='pokemon_duplication', aliases=['duplicates', 'dupes'])
+    async def pokemon_duplication(self, ctx):
+        """Show all duplicate Pokemon in your collection"""
+        user_id = str(ctx.author.id)
+        self.initialize_player(user_id)
+        
+        pokemon_list = self.player_data[user_id]["pokemon"]
+        
+        if not pokemon_list:
+            embed = discord.Embed(
+                title="❌ No Pokemon Found",
+                description="You haven't caught any Pokemon yet! Use `!encounter` to find wild Pokemon.",
+                color=discord.Color.red()
+            )
+            await ctx.send(embed=embed)
+            return
+        
+        # Count Pokemon occurrences
+        pokemon_counts = {}
+        for pokemon in pokemon_list:
+            name = pokemon['name']
+            if name not in pokemon_counts:
+                pokemon_counts[name] = []
+            pokemon_counts[name].append({
+                'id': pokemon['id'],
+                'types': pokemon['types'],
+                'caught_date': pokemon['caught_date'],
+                'rarity': pokemon['rarity']
+            })
+        
+        # Filter only duplicates (count > 1)
+        duplicates = {name: info for name, info in pokemon_counts.items() if len(info) > 1}
+        
+        if not duplicates:
+            embed = discord.Embed(
+                title="🔍 No Duplicates Found",
+                description="You don't have any duplicate Pokemon in your collection!",
+                color=discord.Color.blue()
+            )
+            embed.set_footer(text=f"Collection size: {len(pokemon_list)} unique Pokemon")
+            await ctx.send(embed=embed)
+            return
+        
+        # Create embed
+        embed = discord.Embed(
+            title="🔄 Your Duplicate Pokemon",
+            description=f"Found duplicates in your collection of {len(pokemon_list)} Pokemon",
+            color=discord.Color.gold()
+        )
+        
+        # Add duplicate Pokemon information
+        for name, instances in duplicates.items():
+            # Get the first instance for type and rarity info
+            pokemon_info = instances[0]
+            type_text = " / ".join(pokemon_info['types'])
+            
+            # Create a clean list of duplicates
+            dupes_text = []
+            for inst in instances:
+                catch_date = datetime.fromisoformat(inst['caught_date']).strftime("%Y-%m-%d")
+                dupes_text.append(f"• ID #{inst['id']} (Caught: {catch_date})")
+            
+            # Add field for each duplicate Pokemon
+            embed.add_field(
+                name=f"📋 {name} × {len(instances)}",
+                value=f"**Type:** {type_text}\n**Rarity:** {pokemon_info['rarity']}\n\n**Copies:**\n" + "\n".join(dupes_text),
+                inline=False
+            )
+        
+        # Add summary
+        total_dupes = sum(len(instances) - 1 for instances in duplicates.values())
+        embed.add_field(
+            name="📊 Summary",
+            value=f"**Total Duplicate Species:** {len(duplicates)}\n**Total Extra Copies:** {total_dupes}",
+            inline=False
+        )
+        
+        embed.set_thumbnail(url=ctx.author.display_avatar.url)
+        embed.set_footer(text=f"Use !pokemon_info <id> to view detailed information about specific Pokemon")
+        
+        await ctx.send(embed=embed)
+    
 async def setup(bot):
     """Setup function for the cog"""
     await bot.add_cog(Pokemon(bot))
