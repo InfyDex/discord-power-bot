@@ -71,6 +71,8 @@ Catch, collect, and manage your Pokemon in this engaging mini-game!
 - `!pinfo <name/id>` - View detailed info about a specific Pokemon (alias)
 - `!pokemon_detail <name/id>` - View detailed info about a specific Pokemon (alias)
 - `!pokemon_lookup <name/id>` - View detailed info about a specific Pokemon from the list of all Pokemon
+- `!inventory` - View your current Inventory
+- `!bag` - View your current Inventory (alias)
 
 **Game Features:**
 - **Starting Inventory:** All players begin with 5 normal Pokeballs
