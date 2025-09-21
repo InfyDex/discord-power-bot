@@ -52,7 +52,7 @@ class LegionBot(commands.Bot):
                 return
             
             # Create backup directory on D drive if it doesn't exist
-            backup_dir = 'D:\\legion_bot_backups'
+            backup_dir = 'legion_bot_backups'
             os.makedirs(backup_dir, exist_ok=True)
             
             # Create timestamped backup filename
