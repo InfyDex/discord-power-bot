@@ -236,6 +236,216 @@ class Pokemon(commands.Cog):
         await self.admin_commands.debug_channels(quick_ctx)
 
 
+    @commands.command(name="pokemon_lookup")
+    async def pokemon_lookup(self, ctx, *, pokemon_identifier):
+        """
+        Look up a Pokémon by name or number from the database
+        Usage: !pokemon_lookup <name or number>
+        """
+        # Convert the identifier to either a name (string) or number (int)
+        pokemon_data = None
+        
+        # Try to find by ID first
+        if pokemon_identifier.isdigit():
+            pokemon_id = pokemon_identifier
+            if pokemon_id in self.pokemon_database:
+                pokemon_data = self.pokemon_database[pokemon_id]
+                pokemon_data["id"] = int(pokemon_id)
+        else:
+            # Search by name (case-insensitive)
+            pokemon_name = pokemon_identifier.lower()
+            for pid, pdata in self.pokemon_database.items():
+                if pdata["name"].lower() == pokemon_name:
+                    pokemon_data = pdata
+                    pokemon_data["id"] = int(pid)
+                    break
+        
+        if not pokemon_data:
+            await ctx.send(f"❌ Pokémon '{pokemon_identifier}' not found in the database.")
+            return
+        
+        # Create an embed similar to the example image
+        embed = discord.Embed(
+            title=f"{pokemon_data['name']} - Pokedex Entry",
+            description=f"A {pokemon_data['rarity'].lower()} Pokémon from Generation {pokemon_data['generation']}.",
+            color=self.get_type_color(pokemon_data['types'][0])
+        )
+        
+        # Add Pokedex number
+        embed.add_field(
+            name="Pokedex #",
+            value=f"#{pokemon_data['id']}",
+            inline=True
+        )
+        
+        # Add Type
+        type_str = " / ".join(pokemon_data['types'])
+        embed.add_field(
+            name="Type",
+            value=type_str,
+            inline=True
+        )
+        
+        # Add Rarity
+        embed.add_field(
+            name="Rarity",
+            value=pokemon_data['rarity'],
+            inline=True
+        )
+        
+        # Add Generation
+        embed.add_field(
+            name="Generation",
+            value=f"Gen {pokemon_data['generation']}",
+            inline=True
+        )
+        
+        # Add Catch Rate
+        embed.add_field(
+            name="Catch Rate",
+            value=f"{int(pokemon_data['catch_rate'] * 100)}%",
+            inline=True
+        )
+        
+        # Add Base Stat Total
+        embed.add_field(
+            name="Base Stat Total",
+            value=str(pokemon_data['stats']['total']),
+            inline=True
+        )
+        
+        # Add Base Stats
+        stats_text = f"HP: {pokemon_data['stats']['hp']} | Attack: {pokemon_data['stats']['attack']} | Defense: {pokemon_data['stats']['defense']} | "
+        stats_text += f"Sp. Attack: {pokemon_data['stats']['sp_attack']} | Sp. Defense: {pokemon_data['stats']['sp_defense']} | Speed: {pokemon_data['stats']['speed']}"
+        embed.add_field(
+            name="Base Stats",
+            value=stats_text,
+            inline=False
+        )
+        
+        # Add Requested By
+        embed.add_field(
+            name="Requested By",
+            value=f"@{ctx.author.display_name}",
+            inline=False
+        )
+        
+        # Set the Pokemon image
+        if 'image_url' in pokemon_data:
+            embed.set_image(url=pokemon_data['image_url'])
+        
+        # Add footer
+        embed.set_footer(text="Pokemon Information • Legion Pokemon System")
+        
+        await ctx.send(embed=embed)
+    
+    def get_type_color(self, pokemon_type):
+        """Get a color based on the Pokemon's primary type"""
+        type_colors = {
+            "Normal": 0xA8A878,
+            "Fire": 0xF08030,
+            "Water": 0x6890F0,
+            "Electric": 0xF8D030,
+            "Grass": 0x78C850,
+            "Ice": 0x98D8D8,
+            "Fighting": 0xC03028,
+            "Poison": 0xA040A0,
+            "Ground": 0xE0C068,
+            "Flying": 0xA890F0,
+            "Psychic": 0xF85888,
+            "Bug": 0xA8B820,
+            "Rock": 0xB8A038,
+            "Ghost": 0x705898,
+            "Dragon": 0x7038F8,
+            "Dark": 0x705848,
+            "Steel": 0xB8B8D0,
+            "Fairy": 0xEE99AC
+        }
+        
+        return type_colors.get(pokemon_type, 0x68A090)  # Default color if type not found
+
+    @commands.command(name='pokemon_duplication', aliases=['duplicates', 'dupes'])
+    async def pokemon_duplication(self, ctx):
+        """Show all duplicate Pokemon in your collection"""
+        user_id = str(ctx.author.id)
+        self.initialize_player(user_id)
+        
+        pokemon_list = self.player_data[user_id]["pokemon"]
+        
+        if not pokemon_list:
+            embed = discord.Embed(
+                title="❌ No Pokemon Found",
+                description="You haven't caught any Pokemon yet! Use `!encounter` to find wild Pokemon.",
+                color=discord.Color.red()
+            )
+            await ctx.send(embed=embed)
+            return
+        
+        # Count Pokemon occurrences
+        pokemon_counts = {}
+        for pokemon in pokemon_list:
+            name = pokemon['name']
+            if name not in pokemon_counts:
+                pokemon_counts[name] = []
+            pokemon_counts[name].append({
+                'id': pokemon['id'],
+                'types': pokemon['types'],
+                'caught_date': pokemon['caught_date'],
+                'rarity': pokemon['rarity']
+            })
+        
+        # Filter only duplicates (count > 1)
+        duplicates = {name: info for name, info in pokemon_counts.items() if len(info) > 1}
+        
+        if not duplicates:
+            embed = discord.Embed(
+                title="🔍 No Duplicates Found",
+                description="You don't have any duplicate Pokemon in your collection!",
+                color=discord.Color.blue()
+            )
+            embed.set_footer(text=f"Collection size: {len(pokemon_list)} unique Pokemon")
+            await ctx.send(embed=embed)
+            return
+        
+        # Create embed
+        embed = discord.Embed(
+            title="🔄 Your Duplicate Pokemon",
+            description=f"Found duplicates in your collection of {len(pokemon_list)} Pokemon",
+            color=discord.Color.gold()
+        )
+        
+        # Add duplicate Pokemon information
+        for name, instances in duplicates.items():
+            # Get the first instance for type and rarity info
+            pokemon_info = instances[0]
+            type_text = " / ".join(pokemon_info['types'])
+            
+            # Create a clean list of duplicates
+            dupes_text = []
+            for inst in instances:
+                catch_date = datetime.fromisoformat(inst['caught_date']).strftime("%Y-%m-%d")
+                dupes_text.append(f"• ID #{inst['id']} (Caught: {catch_date})")
+            
+            # Add field for each duplicate Pokemon
+            embed.add_field(
+                name=f"📋 {name} × {len(instances)}",
+                value=f"**Type:** {type_text}\n**Rarity:** {pokemon_info['rarity']}\n\n**Copies:**\n" + "\n".join(dupes_text),
+                inline=False
+            )
+        
+        # Add summary
+        total_dupes = sum(len(instances) - 1 for instances in duplicates.values())
+        embed.add_field(
+            name="📊 Summary",
+            value=f"**Total Duplicate Species:** {len(duplicates)}\n**Total Extra Copies:** {total_dupes}",
+            inline=False
+        )
+        
+        embed.set_thumbnail(url=ctx.author.display_avatar.url)
+        embed.set_footer(text=f"Use !pokemon_info <id> to view detailed information about specific Pokemon")
+        
+        await ctx.send(embed=embed)
+    
 async def setup(bot):
     """Setup function for the cog"""
     await bot.add_cog(Pokemon(bot))
