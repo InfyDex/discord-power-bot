@@ -1,14 +1,16 @@
 """
 Wild Spawn Manager
-Handles wild Pokemon spawning system including background tasks and spawn data management.
+Handles wild Pokémon spawning system including background tasks and spawn data management.
 """
 
 import json
 import os
+from datetime import datetime
+from typing import Optional, Dict, Any
+
 import discord
 from discord.ext import tasks
-from typing import Optional, Dict, Any
-from datetime import datetime
+
 from ..models.pokemon_model import PokemonData
 
 
@@ -21,7 +23,7 @@ class WildSpawnData:
         
         self.last_spawn = data.get("last_spawn")
         self.current_wild = data.get("current_wild")
-        self.spawn_channel = data.get("spawn_channel", "pokemon")
+        self.spawn_channel = os.getenv('DISCORD_POKEMON_CHANNEL', 'pokemon')
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSON storage"""
@@ -145,9 +147,8 @@ class WildSpawnManager:
         return status
     
     def start_spawn_task(self, bot, pokemon_database_manager):
-        """Start the background task for wild Pokemon spawning"""
-        from ..utils.embed_utils import PokemonEmbedUtils
-        
+        """Start the background task for wild Pokémon spawning"""
+
         @tasks.loop(minutes=30)
         async def wild_spawn_loop():
             await self._spawn_wild_pokemon(bot, pokemon_database_manager)
@@ -157,14 +158,14 @@ class WildSpawnManager:
         self._spawn_task_started = True
     
     async def _spawn_wild_pokemon(self, bot, pokemon_database_manager):
-        """Internal method to spawn a wild Pokemon"""
+        """Internal method to spawn a wild Pokémon"""
         try:
-            # Find the pokemon channel
+            # Find the Pokémon channel
             channel = await self._find_spawn_channel(bot)
             if not channel:
                 return
             
-            # Get a common or uncommon Pokemon
+            # Get a common or uncommon Pokémon
             pokemon = pokemon_database_manager.get_common_uncommon_pokemon()
             if not pokemon:
                 print("No common/uncommon Pokemon found for spawning!")
