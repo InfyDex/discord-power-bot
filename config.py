@@ -18,8 +18,8 @@ class Config:
     DISCORD_BOT_TOKEN = os.getenv('DISCORD_BOT_TOKEN')
     
     # Bot settings
-    COMMAND_PREFIX = COMMAND_PREFIX
-    
+    COMMAND_PREFIX = os.getenv('DISCORD_COMMAND_PREFIX', '!')
+
     # Admin users (Discord User IDs)
     ADMIN_USERS = [
         402169053013213195,  # Add your admin user ID here

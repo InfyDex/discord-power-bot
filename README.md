@@ -92,6 +92,7 @@ The bot is designed for easy expansion. To add new features:
 
 ### Environment Variables
 - `DISCORD_BOT_TOKEN` - Your Discord bot token (required)
+- `DISCORD_COMMAND_PREFIX` - Set the bot's command prefix (default is `!`). Example: `DISCORD_COMMAND_PREFIX=?`
 - `LOG_LEVEL` - Logging level (DEBUG, INFO, WARNING, ERROR) - default: INFO
 - `LOG_FILE` - Log file path - default: bot.log
 

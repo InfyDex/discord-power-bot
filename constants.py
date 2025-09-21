@@ -59,6 +59,3 @@ HELP_MESSAGES = [
 
 # Greeting words that trigger greeting responses
 GREETING_WORDS = ['hi', 'hello', 'hey', 'hola', 'bonjour', 'hallo', 'ciao']
-
-# Bot command prefix
-COMMAND_PREFIX = '!'
