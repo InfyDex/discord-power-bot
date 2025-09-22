@@ -143,9 +143,14 @@ class Pokemon(commands.Cog):
     
     # Prefix Commands
     @commands.command(name='pokemon_list', aliases=['pokedex', 'collection'])
-    async def pokemon_collection(self, ctx, user: discord.Member = None):
-        """View your Pokemon collection or another user's collection"""
-        await self.collection_commands.pokemon_collection(ctx, user)
+    async def pokemon_collection(self, ctx, user: discord.Member = None, pokemon_identifier: str = None):
+        """View your Pokémon collection or another user's collection"""
+        await self.collection_commands.pokemon_collection(ctx, user, pokemon_identifier)
+
+    @commands.command(name='pokedex_page', aliases=['ppage', 'pdex'])
+    async def pokedex_page(self, ctx, page_number: int = 1):
+        """View a specific page of the Pokédex (10 Pokémon per page)"""
+        await self.collection_commands.pokedex_page(ctx, page_number)
     
     @commands.command(name='pokemon_stats', aliases=['stats'])
     async def pokemon_stats(self, ctx):
@@ -190,11 +195,11 @@ class Pokemon(commands.Cog):
     # Slash Commands
     @app_commands.command(name="collection", description="View your Pokemon collection or another user's collection")
     @app_commands.describe(user="User whose collection to view (optional)")
-    async def slash_pokemon_collection(self, interaction: discord.Interaction, user: discord.Member = None):
-        """View your Pokemon collection or another user's collection (slash command)"""
+    async def slash_pokemon_collection(self, interaction: discord.Interaction, user: discord.Member = None, pokemon_identifier: str = None):
+        """View your Pokémon collection or another user's collection (slash command)"""
         from .pokemon_system.utils.interaction_utils import create_unified_context
         unified_ctx = create_unified_context(interaction)
-        await self.collection_commands._pokemon_collection_logic(unified_ctx, user)
+        await self.collection_commands.pokemon_collection_logic(unified_ctx, user, pokemon_identifier)
     
     @app_commands.command(name="pokemon_stats", description="View your Pokemon game statistics")
     async def slash_pokemon_stats(self, interaction: discord.Interaction):
@@ -329,24 +334,32 @@ class Pokemon(commands.Cog):
     # Leaderboard Slash Commands
     @app_commands.command(name="leaderboard_pokemon", description="View Pokemon collection leaderboard (top 10)")
     async def slash_leaderboard_pokemon(self, interaction: discord.Interaction):
-        """Pokemon collection leaderboard (slash command)"""
+        """Pokémon collection leaderboard (slash command)"""
         from .pokemon_system.utils.interaction_utils import create_unified_context
         unified_ctx = create_unified_context(interaction)
-        await self.leaderboard_commands._leaderboard_pokemon_logic(unified_ctx)
+        await self.leaderboard_commands.leaderboard_pokemon_logic(unified_ctx)
     
     @app_commands.command(name="leaderboard_power", description="View total power leaderboard (top 10)")
     async def slash_leaderboard_power(self, interaction: discord.Interaction):
         """Total power leaderboard (slash command)"""
         from .pokemon_system.utils.interaction_utils import create_unified_context
         unified_ctx = create_unified_context(interaction)
-        await self.leaderboard_commands._leaderboard_power_logic(unified_ctx)
+        await self.leaderboard_commands.leaderboard_power_logic(unified_ctx)
     
     @app_commands.command(name="leaderboard_rarity", description="View rarity score leaderboard (top 10)")
     async def slash_leaderboard_rarity(self, interaction: discord.Interaction):
         """Rarity score leaderboard (slash command)"""
         from .pokemon_system.utils.interaction_utils import create_unified_context
         unified_ctx = create_unified_context(interaction)
-        await self.leaderboard_commands._leaderboard_rarity_logic(unified_ctx)
+        await self.leaderboard_commands.leaderboard_rarity_logic(unified_ctx)
+
+    @app_commands.command(name="pokedex_page", description="View a specific page of the Pokedex (10 Pokemon per page)")
+    @app_commands.describe(page_number="Page number to view (default: 1)")
+    async def slash_pokedex_page(self, interaction: discord.Interaction, page_number: int = 1):
+        """View a specific page of the Pokédex (slash command)"""
+        from .pokemon_system.utils.interaction_utils import create_unified_context
+        unified_ctx = create_unified_context(interaction)
+        await self.collection_commands.pokedex_page_logic(unified_ctx, page_number)
     
     @app_commands.command(name="leaderboard_rank", description="Check individual rank in all leaderboards")
     @app_commands.describe(user="User to check rank for (defaults to yourself)")

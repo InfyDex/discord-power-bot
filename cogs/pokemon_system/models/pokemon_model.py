@@ -3,9 +3,7 @@ Pokemon Data Models
 Defines data structures for Pokemon entities.
 """
 
-from typing import Dict, List, Any, Optional
-from datetime import datetime
-import json
+from typing import Dict, List, Any
 
 
 class PokemonStats:

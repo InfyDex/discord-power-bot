@@ -308,7 +308,7 @@ class LeaderboardCommands:
         return embed
 
     # Shared logic functions for different leaderboard types
-    async def _leaderboard_pokemon_logic(self, unified_ctx):
+    async def leaderboard_pokemon_logic(self, unified_ctx):
         """Shared logic for Pokémon count leaderboard"""
         leaderboard_data = await self._get_leaderboard_data("pokemon_count")
         embed = self._create_leaderboard_embed(
@@ -318,7 +318,7 @@ class LeaderboardCommands:
         )
         await unified_ctx.send(embed=embed)
 
-    async def _leaderboard_power_logic(self, unified_ctx):
+    async def leaderboard_power_logic(self, unified_ctx):
         """Shared logic for total power leaderboard"""
         leaderboard_data = await self._get_leaderboard_data("total_power")
         embed = self._create_leaderboard_embed(
@@ -328,7 +328,7 @@ class LeaderboardCommands:
         )
         await unified_ctx.send(embed=embed)
 
-    async def _leaderboard_rarity_logic(self, unified_ctx):
+    async def leaderboard_rarity_logic(self, unified_ctx):
         """Shared logic for rarity score leaderboard"""
         leaderboard_data = await self._get_leaderboard_data("rarity_score")
         embed = self._create_leaderboard_embed(
@@ -348,17 +348,17 @@ class LeaderboardCommands:
     async def leaderboard_pokemon(self, ctx):
         """Pokémon count leaderboard (prefix command)"""
         unified_ctx = create_unified_context(ctx)
-        await self._leaderboard_pokemon_logic(unified_ctx)
+        await self.leaderboard_pokemon_logic(unified_ctx)
 
     async def leaderboard_power(self, ctx):
         """Total power leaderboard (prefix command)"""
         unified_ctx = create_unified_context(ctx)
-        await self._leaderboard_power_logic(unified_ctx)
+        await self.leaderboard_power_logic(unified_ctx)
 
     async def leaderboard_rarity(self, ctx):
         """Rarity score leaderboard (prefix command)"""
         unified_ctx = create_unified_context(ctx)
-        await self._leaderboard_rarity_logic(unified_ctx)
+        await self.leaderboard_rarity_logic(unified_ctx)
 
     async def leaderboard_rank(self, ctx, leaderboard_type: str, target_user: discord.Member = None):
         """Individual rank lookup (prefix command)"""

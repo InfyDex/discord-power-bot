@@ -48,18 +48,31 @@ class MongoManager:
             
         result = self.caught_pokemon.insert_one(pokemon_data)
         return str(result.inserted_id)
-        
-    def get_pokemon_by_owner(self, owner_id: str) -> List[Dict[str, Any]]:
+
+    def get_pokemon_by_owner(
+            self,
+            owner_id: str,
+            page: Optional[int] = None,
+            max_per_page: Optional[int] = None
+    ) -> List[Dict[str, Any]]:
         """
-        Get all Pokémon owned by a specific user
-        
+        Get all Pokémon owned by a specific user, optionally paginated.
+
         Args:
             owner_id: Discord user ID of the owner
-            
+            page: Page number (1-based), optional
+            max_per_page: Maximum items per page, optional
+
         Returns:
             List of Pokémon documents
         """
-        return list(self.caught_pokemon.find({"owner_id": owner_id}))
+
+        query = {"owner_id": owner_id}
+        cursor = self.caught_pokemon.find(query)
+        if page is not None and max_per_page is not None:
+            skip = (page - 1) * max_per_page
+            cursor = cursor.skip(skip).limit(max_per_page)
+        return list(cursor)
         
     def get_pokemon_by_id(self, pokemon_id: str) -> Optional[Dict[str, Any]]:
         """
@@ -115,6 +128,7 @@ class MongoManager:
         Returns:
             Number of Pokémon owned by the user
         """
+        owner_id = str(owner_id)
         return self.caught_pokemon.count_documents({"owner_id": owner_id})
 
     def get_pokemon_grouped_by_owner(self) -> List[Dict[str, Any]]:

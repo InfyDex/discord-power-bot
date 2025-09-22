@@ -1,14 +1,15 @@
 """
-Pokemon Embed Utilities  
+Pokémon Embed Utilities
 Helper functions for creating Pokemon-related Discord embeds.
 """
 
-import discord
-from typing import List, Dict
 from datetime import datetime
+from typing import List
+
+import discord
 
 from .type_utils import PokemonTypeUtils
-from ..models.pokemon_model import PokemonData, CaughtPokemon
+from ..models.pokemon_model import PokemonData, CaughtPokemon, PokemonStats
 
 
 class PokemonEmbedUtils:
@@ -16,7 +17,7 @@ class PokemonEmbedUtils:
     
     @staticmethod
     def create_wild_spawn_embed(pokemon: PokemonData) -> discord.Embed:
-        """Create embed for wild Pokemon spawn"""
+        """Create embed for wild Pokémon spawn"""
         embed = discord.Embed(
             title=f"🌿 A Wild {pokemon.name} Appeared!",
             description=f"A wild **{pokemon.name}** has appeared! First trainer to catch it wins!\n\n**Type `!wild_catch` to attempt capture**\n\n*{pokemon.description}*",
@@ -208,42 +209,55 @@ class PokemonEmbedUtils:
             embed.set_footer(text=f"Showing {display_pokemon.name} • Legion Pokemon System")
         
         return embed
-    
+
     @staticmethod
-    def create_pokemon_detail_embed(pokemon: PokemonData, user_mention: str = None) -> discord.Embed:
-        """Create detailed embed for a specific Pokémon"""
+    def _pokemon_detail_top(name: str, description: str, types: List[str], image_url: str, sprite_url: str, pokemon_id: int, rarity: str) -> discord.Embed:
         embed = discord.Embed(
-            title=f"📋 {pokemon.name} - Details",
-            description=pokemon.description,
-            color=PokemonTypeUtils.get_type_color(pokemon.types)
+            title=f"📋 {name} - Details",
+            description=description,
+            color=PokemonTypeUtils.get_type_color(types)
         )
-        
+
         # Add Pokemon image
-        embed.set_image(url=pokemon.image_url)
-        embed.set_thumbnail(url=pokemon.sprite_url)
-        
+        embed.set_image(url=image_url)
+        embed.set_thumbnail(url=sprite_url)
+
         # Basic info
-        embed.add_field(name="🆔 ID", value=f"#{pokemon.id}", inline=True)
-        embed.add_field(name="🏷️ Type", value=PokemonTypeUtils.format_types(pokemon.types), inline=True)
-        embed.add_field(name="⭐ Rarity", value=pokemon.rarity, inline=True)
-        
+        embed.add_field(name="🆔 ID", value=f"#{pokemon_id}", inline=True)
+        embed.add_field(name="🏷️ Type", value=PokemonTypeUtils.format_types(types), inline=True)
+        embed.add_field(name="⭐ Rarity", value=rarity, inline=True)
+        return embed
+
+    @staticmethod
+    def _pokemon_detail_bottom(embed: discord.Embed, generation: int, stats: PokemonStats, user_mention: str = None) -> discord.Embed:
         # Generation info
-        embed.add_field(name="🌍 Generation", value=f"Gen {pokemon.generation}", inline=True)
-        embed.add_field(name="📊 Base Stat Total", value=pokemon.stats.total, inline=True)
-        
+        embed.add_field(name="🌍 Generation", value=f"Gen {generation}", inline=True)
+        embed.add_field(name="📊 Base Stat Total", value=stats.total, inline=True)
+
         # Detailed stats
-        stats = pokemon.stats
         stats_text = (
             f"**HP:** {stats.hp} | **Attack:** {stats.attack} | **Defense:** {stats.defense}\n"
             f"**Sp. Attack:** {stats.sp_attack} | **Sp. Defense:** {stats.sp_defense} | **Speed:** {stats.speed}"
         )
         embed.add_field(name="📊 Base Stats", value=stats_text, inline=False)
-        
+
         # Add user info as a field (where mentions work)
         if user_mention:
             embed.add_field(name="👤 Requested By", value=user_mention, inline=True)
-        
+
         # Static footer
         embed.set_footer(text="Pokemon Details • Legion Pokemon System")
-        
         return embed
+
+    @staticmethod
+    def create_pokemon_detail_embed(pokemon: PokemonData, user_mention: str = None) -> discord.Embed:
+        embed = PokemonEmbedUtils._pokemon_detail_top(pokemon.name, pokemon.description, pokemon.types, pokemon.image_url, pokemon.sprite_url, pokemon.id, pokemon.rarity)
+        return PokemonEmbedUtils._pokemon_detail_bottom(embed, pokemon.generation, pokemon.stats, user_mention)
+
+    @staticmethod
+    def create_cached_pokemon_detail_embed(pokemon: CaughtPokemon, user_mention: str = None) -> discord.Embed:
+        embed = PokemonEmbedUtils._pokemon_detail_top(pokemon.name, pokemon.description, pokemon.types, pokemon.image_url, pokemon.sprite_url, pokemon.collection_id, pokemon.rarity)
+        # Caught date
+        caught_date = datetime.fromisoformat(pokemon.caught_date).strftime("%B %d, %Y at %I:%M %p")
+        embed.add_field(name="📅 Caught On", value=caught_date, inline=True)
+        return PokemonEmbedUtils._pokemon_detail_bottom(embed, pokemon.generation, pokemon.stats, user_mention)

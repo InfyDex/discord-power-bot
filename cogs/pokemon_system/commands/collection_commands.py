@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Optional
 
 import discord
 
@@ -6,19 +7,20 @@ from ..managers import PokemonDatabaseManager, PlayerDataManager
 from ..models.pokemon_model import CaughtPokemon
 from ..utils import PokemonEmbedUtils
 from ..utils.interaction_utils import UnifiedContext, create_unified_context
+from ..utils.mongo_manager import MongoManager
 
 
 class CollectionPokemonCommands:
-    """Contains Pokemon collection management commands with shared logic architecture"""
+    """Contains Pokémon collection management commands with shared logic architecture"""
     
-    def __init__(self, pokemon_db: PokemonDatabaseManager, player_db: PlayerDataManager, mongo_db=None):
+    def __init__(self, pokemon_db: PokemonDatabaseManager, player_db: PlayerDataManager, mongo_db: MongoManager=None):
         self.pokemon_db = pokemon_db
         self.player_db = player_db
         self.mongo_db = mongo_db
     
     # ========== SHARED LOGIC FUNCTIONS ==========
     
-    async def _pokemon_collection_logic(self, unified_ctx: UnifiedContext, user: discord.Member = None) -> bool:
+    async def pokemon_collection_logic(self, unified_ctx: UnifiedContext, user: discord.Member = None, pokemon_identifier: str = None) -> bool:
         """
         Shared logic for both prefix and slash collection commands
         Returns True if successful, False if failed
@@ -36,6 +38,32 @@ class CollectionPokemonCommands:
         for pokemon_data in caught_pokemons:
             caught_pokemon = CaughtPokemon.from_dict(pokemon_data)
             pokemon_collection.append(caught_pokemon)
+
+        if pokemon_identifier:
+            found_pokemon: Optional[CaughtPokemon] = None
+
+            if pokemon_identifier.startswith('#'):
+                for pokemon in pokemon_collection:
+                    if str(pokemon.collection_id) == pokemon_identifier[1:]:
+                        found_pokemon = pokemon
+                        break
+            else:
+                for pokemon in pokemon_collection:
+                    if pokemon.name.lower() == pokemon_identifier.lower():
+                        found_pokemon = pokemon
+                        break
+
+            if not found_pokemon:
+                await self._pokemon_not_found(unified_ctx, pokemon_identifier)
+                return False
+
+            # Create detailed Pokémon embed
+            embed = PokemonEmbedUtils.create_cached_pokemon_detail_embed(
+                pokemon=found_pokemon,
+                user_mention=user.mention
+            )
+            await unified_ctx.send(embed=embed)
+            return True
         
         # Create collection embed
         embed = PokemonEmbedUtils.create_collection_embed(
@@ -90,7 +118,7 @@ class CollectionPokemonCommands:
                 pokeball_text += f"{emoji} {ball_data['name']}: {ball_data['count']}\n"
         
         if not pokeball_text:
-            pokeball_text = "No pokeballs"
+            pokeball_text = "No poke balls"
             
         embed.add_field(name="� Pokeball Inventory", value=pokeball_text, inline=True)
         
@@ -135,7 +163,7 @@ class CollectionPokemonCommands:
                 pokeball_text += f"{emoji} {ball_data['name']}: **{count}**\n"
         
         if not pokeball_text:
-            pokeball_text = "No pokeballs in inventory"
+            pokeball_text = "No poke balls in inventory"
             
         embed.add_field(name="� Pokeball Inventory", value=pokeball_text, inline=False)
         
@@ -153,6 +181,51 @@ class CollectionPokemonCommands:
         else:
             embed.add_field(name="🌿 Current Encounter", value="None", inline=True)
         
+        await unified_ctx.send(embed=embed)
+        return True
+
+    async def pokedex_page_logic(self, unified_ctx: UnifiedContext, page_number: int) -> bool:
+        """
+        Shared logic for both prefix and slash Pokédex page commands
+        Returns True if successful, False if failed
+        """
+        pokedex_per_page = 10
+        total_pokemon = self.mongo_db.count_pokemon_by_owner(unified_ctx.author.id)
+        total_pages = (total_pokemon + pokedex_per_page - 1) // pokedex_per_page
+
+        if page_number < 1 or page_number > total_pages:
+            embed = discord.Embed(
+                title="❌ Invalid Page Number",
+                description=f"Please enter a page number between 1 and {total_pages}.",
+                color=discord.Color.red()
+            )
+            await unified_ctx.send(embed=embed)
+            return False
+
+        # Fetch Pokémon for the requested page
+        pokemons_on_page = self.mongo_db.get_pokemon_by_owner(
+            str(unified_ctx.author.id),
+            page=page_number,
+            max_per_page = pokedex_per_page
+        )
+
+        embed = discord.Embed(
+            title=f"📖 Pokédex - Page {page_number}/{total_pages}",
+            description="List of Pokémon in the database",
+            color=discord.Color.purple()
+        )
+
+        for pokemon in pokemons_on_page:
+            embed.add_field(
+                name=f"#{pokemon.get('id')} {pokemon.get('name')}",
+                value=f"Type: {', '.join(pokemon.get('types'))} | Rarity: {pokemon.get('rarity')}",
+                inline=False
+            )
+
+        embed.set_footer(text=f"Requested by {unified_ctx.author.mention}")
+
+        embed.set_footer(text="Use the command with a page number to view other pages.")
+
         await unified_ctx.send(embed=embed)
         return True
     
@@ -179,13 +252,7 @@ class CollectionPokemonCommands:
                 found_pokemon = pokemons[0]
         
         if not found_pokemon:
-            embed = discord.Embed(
-                title="❌ Pokemon Not Found",
-                description=f"Could not find a Pokemon matching '{pokemon_identifier}'.",
-                color=discord.Color.red()
-            )
-            embed.add_field(name="💡 Tip", value="Use the Pokemon's name or collection ID (e.g., '#5')", inline=False)
-            await unified_ctx.send(embed=embed)
+            await self._pokemon_not_found(unified_ctx, pokemon_identifier)
             return False
         
         # Create detailed Pokémon embed
@@ -196,21 +263,31 @@ class CollectionPokemonCommands:
         
         await unified_ctx.send(embed=embed)
         return True
+
+    @staticmethod
+    async def _pokemon_not_found(unified_ctx: UnifiedContext, identifier: str):
+        embed = discord.Embed(
+            title="❌ Pokemon Not Found",
+            description=f"Could not find a Pokemon matching '{identifier}'.",
+            color=discord.Color.red()
+        )
+        embed.add_field(name="💡 Tip", value="Use the Pokemon's name or collection ID (e.g., '#5')", inline=False)
+        await unified_ctx.send(embed=embed)
     
     # ========== LEGACY PREFIX COMMANDS ==========
     
-    async def pokemon_collection(self, ctx, user: discord.Member = None):
-        """View your Pokemon collection or another user's collection (legacy prefix command)"""
+    async def pokemon_collection(self, ctx, user: discord.Member = None, pokemon_identifier: str = None):
+        """View your Pokémon collection or another user's collection (legacy prefix command)"""
         unified_ctx = create_unified_context(ctx)
-        return await self._pokemon_collection_logic(unified_ctx, user)
+        return await self.pokemon_collection_logic(unified_ctx, user, pokemon_identifier)
     
     async def pokemon_stats(self, ctx):
-        """View your Pokemon game statistics (legacy prefix command)"""
+        """View your Pokémon game statistics (legacy prefix command)"""
         unified_ctx = create_unified_context(ctx)
         return await self._pokemon_stats_logic(unified_ctx)
     
     async def pokemon_inventory(self, ctx):
-        """View your Pokemon inventory and items (legacy prefix command)"""
+        """View your Pokémon inventory and items (legacy prefix command)"""
         unified_ctx = create_unified_context(ctx)
         return await self._pokemon_inventory_logic(unified_ctx)
     
@@ -218,3 +295,8 @@ class CollectionPokemonCommands:
         """View detailed information about a specific Pokémon in your collection (legacy prefix command)"""
         unified_ctx = create_unified_context(ctx)
         return await self._pokemon_info_logic(unified_ctx, pokemon_identifier)
+
+    async def pokedex_page(self, ctx, page_number: int):
+        """View a page of the Pokédex (legacy prefix command)"""
+        unified_ctx = create_unified_context(ctx)
+        return await self.pokedex_page_logic(unified_ctx, page_number)
