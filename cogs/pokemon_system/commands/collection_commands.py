@@ -224,7 +224,9 @@ class CollectionPokemonCommands:
 
         if duplicate_names:
             embed.description += " (Showing Duplicates Only)"
-            duplicate_names = dict(sorted(duplicate_names.items()))
+            duplicate_names = dict(
+                sorted(duplicate_names.items(), key=lambda item: item[1], reverse=True)
+            )
             start_index = (page_number - 1) * pokedex_per_page
             end_index = start_index + pokedex_per_page
             duplicate_name_count = dict(list(duplicate_names.items())[start_index:end_index])
