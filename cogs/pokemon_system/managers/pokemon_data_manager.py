@@ -138,7 +138,7 @@ class PokemonDatabaseManager:
         }
     
     def search_pokemon(self, query: str, limit: int = 10) -> List[PokemonData]:
-        """Search Pokemon by name (partial matches allowed)"""
+        """Search Pokémon by name (partial matches allowed)"""
         query = query.lower()
         matches = []
         

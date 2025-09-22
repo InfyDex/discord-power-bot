@@ -159,13 +159,13 @@ class Pokemon(commands.Cog):
     
     @commands.command(name='pokemon_info', aliases=['pinfo', 'pokemon_detail'])
     async def pokemon_info(self, ctx, *, pokemon_identifier):
-        """View detailed information about a specific Pokemon in your collection"""
+        """View detailed information about a specific Pokémon in your collection"""
         await self.collection_commands.pokemon_info(ctx, pokemon_identifier=pokemon_identifier)
     
     # Leaderboard Commands
-    @commands.command(name='leaderboard_pokemon', aliases=['lb_pokemon', 'pokemon_leaderboard'])
+    @commands.command(name='leaderboard_pokemon', aliases=['lb_pokemon', 'pokemon_leaderboard', 'lbp'])
     async def leaderboard_pokemon(self, ctx):
-        """View the Pokemon collection leaderboard (top 10 by unique Pokemon species)"""
+        """View the Pokémon collection leaderboard (top 10 by unique Pokémon species)"""
         await self.leaderboard_commands.leaderboard_pokemon(ctx)
     
     @commands.command(name='leaderboard_power', aliases=['lb_power', 'power_leaderboard'])

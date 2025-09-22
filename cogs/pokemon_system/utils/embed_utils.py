@@ -210,8 +210,8 @@ class PokemonEmbedUtils:
         return embed
     
     @staticmethod
-    def create_pokemon_detail_embed(pokemon: CaughtPokemon, user_mention: str = None) -> discord.Embed:
-        """Create detailed embed for a specific Pokemon"""
+    def create_pokemon_detail_embed(pokemon: PokemonData, user_mention: str = None) -> discord.Embed:
+        """Create detailed embed for a specific Pokémon"""
         embed = discord.Embed(
             title=f"📋 {pokemon.name} - Details",
             description=pokemon.description,
@@ -223,13 +223,9 @@ class PokemonEmbedUtils:
         embed.set_thumbnail(url=pokemon.sprite_url)
         
         # Basic info
-        embed.add_field(name="🆔 Collection ID", value=f"#{pokemon.collection_id}", inline=True)
+        embed.add_field(name="🆔 ID", value=f"#{pokemon.id}", inline=True)
         embed.add_field(name="🏷️ Type", value=PokemonTypeUtils.format_types(pokemon.types), inline=True)
         embed.add_field(name="⭐ Rarity", value=pokemon.rarity, inline=True)
-        
-        # Caught date
-        caught_date = datetime.fromisoformat(pokemon.caught_date).strftime("%B %d, %Y at %I:%M %p")
-        embed.add_field(name="📅 Caught On", value=caught_date, inline=True)
         
         # Generation info
         embed.add_field(name="🌍 Generation", value=f"Gen {pokemon.generation}", inline=True)

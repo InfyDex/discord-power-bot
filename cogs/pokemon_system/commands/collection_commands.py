@@ -1,9 +1,11 @@
-import discord
 from datetime import datetime
+
+import discord
+
 from ..managers import PokemonDatabaseManager, PlayerDataManager
-from ..utils import PokemonEmbedUtils, PokemonTypeUtils
+from ..models.pokemon_model import CaughtPokemon
+from ..utils import PokemonEmbedUtils
 from ..utils.interaction_utils import UnifiedContext, create_unified_context
-from ..models.pokemon_model import CaughtPokemon, PokemonData
 
 
 class CollectionPokemonCommands:
@@ -156,46 +158,37 @@ class CollectionPokemonCommands:
     
     async def _pokemon_info_logic(self, unified_ctx: UnifiedContext, pokemon_identifier: str) -> bool:
         """
-        Shared logic for both prefix and slash pokemon info commands
+        Shared logic for both prefix and slash Pokémon info commands
         Returns True if successful, False if failed
         """
-        user_id = str(unified_ctx.author.id)
-        player = self.player_db.get_player(user_id)
         
-        if not player.pokemon_collection:
-            embed = discord.Embed(
-                title="📖 No Pokemon Found",
-                description="You haven't caught any Pokemon yet! Use `!encounter` or `/encounter` to find Pokemon.",
-                color=discord.Color.red()
-            )
-            await unified_ctx.send(embed=embed)
-            return False
-        
-        # Find Pokemon by ID or name
+        # Find Pokémon by ID or name
         found_pokemon = None
         
         # Check if it's a collection ID (starts with #)
         if pokemon_identifier.startswith('#'):
             try:
                 collection_id = int(pokemon_identifier[1:])
-                found_pokemon = next((p for p in player.pokemon_collection if p.collection_id == collection_id), None)
+                found_pokemon = self.pokemon_db.get_pokemon_by_id(collection_id)
             except ValueError:
                 pass
         else:
             # Search by name
-            found_pokemon = next((p for p in player.pokemon_collection if p.name.lower() == pokemon_identifier.lower()), None)
+            pokemons = self.pokemon_db.search_pokemon(pokemon_identifier)
+            if pokemons:
+                found_pokemon = pokemons[0]
         
         if not found_pokemon:
             embed = discord.Embed(
                 title="❌ Pokemon Not Found",
-                description=f"Could not find a Pokemon matching '{pokemon_identifier}' in your collection.",
+                description=f"Could not find a Pokemon matching '{pokemon_identifier}'.",
                 color=discord.Color.red()
             )
             embed.add_field(name="💡 Tip", value="Use the Pokemon's name or collection ID (e.g., '#5')", inline=False)
             await unified_ctx.send(embed=embed)
             return False
         
-        # Create detailed Pokemon embed
+        # Create detailed Pokémon embed
         embed = PokemonEmbedUtils.create_pokemon_detail_embed(
             pokemon=found_pokemon,
             user_mention=unified_ctx.author.mention
@@ -222,6 +215,6 @@ class CollectionPokemonCommands:
         return await self._pokemon_inventory_logic(unified_ctx)
     
     async def pokemon_info(self, ctx, *, pokemon_identifier):
-        """View detailed information about a specific Pokemon in your collection (legacy prefix command)"""
+        """View detailed information about a specific Pokémon in your collection (legacy prefix command)"""
         unified_ctx = create_unified_context(ctx)
         return await self._pokemon_info_logic(unified_ctx, pokemon_identifier)
