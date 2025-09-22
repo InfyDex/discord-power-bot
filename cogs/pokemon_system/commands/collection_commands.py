@@ -190,16 +190,18 @@ class CollectionPokemonCommands:
         Returns True if successful, False if failed
         """
         pokedex_per_page = 10
-        total_pokemon = 0
-        duplicate_name_count = {}
+        duplicate_names = {}
         if only_show_duplicates:
             # Get all Pokémon and filter for duplicates
             all_pokemons = self.mongo_db.get_pokemon_by_owner(str(unified_ctx.author.id))
+            name_count = {}
             for p in all_pokemons:
                 name = p.get('name')
-                duplicate_name_count[name] = duplicate_name_count.get(name, 0) + 1
-            duplicate_names = {name for name, count in duplicate_name_count.items() if count > 1}
-            total_pokemon = sum(1 for p in all_pokemons if p.get('name') in duplicate_names)
+                name_count[name] = name_count.get(name, 0) + 1
+            for name in name_count:
+                if name_count[name] > 1:
+                    duplicate_names[name] = name_count[name]
+            total_pokemon = len(duplicate_names)
         else:
             total_pokemon = self.mongo_db.count_pokemon_by_owner(str(unified_ctx.author.id))
 
@@ -220,8 +222,12 @@ class CollectionPokemonCommands:
             color=discord.Color.purple()
         )
 
-        if duplicate_name_count:
+        if duplicate_names:
             embed.description += " (Showing Duplicates Only)"
+            duplicate_names = dict(sorted(duplicate_names.items()))
+            start_index = (page_number - 1) * pokedex_per_page
+            end_index = start_index + pokedex_per_page
+            duplicate_name_count = dict(list(duplicate_names.items())[start_index:end_index])
             for (name, count) in duplicate_name_count.items():
                 if count > 1:
                     embed.add_field(
