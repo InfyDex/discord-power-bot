@@ -1,23 +1,25 @@
 """
-Basic Pokemon Commands
-Handles core Pokemon gameplay commands like encounters and catching.
+Basic Pokémon Commands
+Handles core Pokémon gameplay commands like encounters and catching.
 Clean, optimized version with shared logic and no duplication.
 """
 
-import discord
 from datetime import datetime
-from typing import Optional
 
+import discord
+
+from config import Config
 from ..managers import PokemonDatabaseManager, PlayerDataManager, WildSpawnManager
+from ..models import CaughtPokemon
 from ..utils import PokemonEmbedUtils, PokemonTypeUtils, ValidationUtils, ErrorUtils
 from ..utils.interaction_utils import UnifiedContext, create_unified_context
-from config import Config
+from ..utils.mongo_manager import MongoManager
 
 
 class BasicPokemonCommands:
-    """Contains basic Pokemon gameplay commands with shared logic architecture"""
+    """Contains basic Pokémon gameplay commands with shared logic architecture"""
     
-    def __init__(self, pokemon_db: PokemonDatabaseManager, player_db: PlayerDataManager, wild_spawn: WildSpawnManager, mongo_db=None):
+    def __init__(self, pokemon_db: PokemonDatabaseManager, player_db: PlayerDataManager, wild_spawn: WildSpawnManager, mongo_db: MongoManager=None):
         self.pokemon_db = pokemon_db
         self.player_db = player_db
         self.wild_spawn = wild_spawn
@@ -142,13 +144,13 @@ class BasicPokemonCommands:
         
         ball_type = ball_type.lower()
         
-        # Attempt to catch the Pokemon
+        # Attempt to catch the Pokémon
         pokemon = player.current_encounter
         success, reason, catch_details = player.catch_pokemon(ball_type)
         
-        # Store the Pokemon in MongoDB only (no longer storing in JSON)
+        # Store the Pokémon in MongoDB only (no longer storing in JSON)
         if success:
-            # Store Pokemon data as individual fields (flattened structure)
+            # Store Pokémon data as individual fields (flattened structure)
             pokemon_dict = {}
             
             # Get Pokemon data
@@ -157,15 +159,18 @@ class BasicPokemonCommands:
             else:
                 pokemon_data = pokemon.__dict__
                 
-            # Add all Pokemon data fields directly to the root level
+            # Add all Pokémon data fields directly to the root level
             pokemon_dict.update(pokemon_data)
             
             # Remove catch_rate as it's not needed in storage
             if "catch_rate" in pokemon_dict:
                 del pokemon_dict["catch_rate"]
-            
-            print(f"DEBUG: Player {user_id} has {len(player.pokemon_collection)} Pokemon in collection before catch")
-            pokemon_dict["id"] = len(player.pokemon_collection) + 1
+            last_pokemon = self.mongo_db.get_last_pokemon(user_id)
+            if last_pokemon:
+                pokemon_id = last_pokemon["id"] + 1
+            else:
+                pokemon_id = 1
+            pokemon_dict["id"] = pokemon_id
             
             # Add metadata
             pokemon_dict["owner_id"] = user_id
@@ -256,7 +261,7 @@ class BasicPokemonCommands:
         user_id = str(unified_ctx.author.id)
         player = self.player_db.get_player(user_id)
         
-        # Check if user has already attempted to catch this wild Pokemon
+        # Check if user has already attempted to catch this wild Pokémon
         if self.wild_spawn.has_user_attempted_catch(user_id):
             embed = ErrorUtils.create_already_attempted_embed("catch this wild Pokemon")
             await unified_ctx.send_error(embed)
@@ -291,7 +296,7 @@ class BasicPokemonCommands:
             await unified_ctx.send_error(embed)
             return False
         
-        # Get the wild Pokemon
+        # Get the wild Pokémon
         wild_pokemon = self.wild_spawn.get_current_wild_pokemon()
         if not wild_pokemon:
             embed = discord.Embed(
@@ -313,7 +318,7 @@ class BasicPokemonCommands:
             # Mark as caught in wild spawn system
             self.wild_spawn.mark_pokemon_caught(user_id, unified_ctx.author.display_name)
             
-            # Store Pokemon in MongoDB
+            # Store Pokémon in MongoDB
             pokemon_dict = {}
             
             # Get Pokemon data
@@ -322,15 +327,21 @@ class BasicPokemonCommands:
             else:
                 pokemon_data = wild_pokemon.__dict__
                 
-            # Add all Pokemon data fields directly to the root level
+            # Add all Pokémon data fields directly to the root level
             pokemon_dict.update(pokemon_data)
             
             # Remove catch_rate as it's not needed in storage
             if "catch_rate" in pokemon_dict:
                 del pokemon_dict["catch_rate"]
-            
-            print(f"DEBUG: Player {user_id} has {len(player.pokemon_collection)} Pokemon in collection before catch")
-            pokemon_dict["id"] = len(player.pokemon_collection)
+
+
+            last_pokemon = self.mongo_db.get_last_pokemon(user_id)
+            if last_pokemon:
+                pokemon_id = last_pokemon["id"] + 1
+            else:
+                pokemon_id = 1
+            pokemon_dict["id"] = pokemon_id
+            pokemon_dict["id"] = pokemon_id
             
             # Add metadata
             pokemon_dict["owner_id"] = user_id
@@ -339,7 +350,7 @@ class BasicPokemonCommands:
             pokemon_dict["caught_from"] = "wild_spawn"
             
             self.mongo_db.add_pokemon(pokemon_dict)
-            player.pokemon_collection.append(wild_pokemon)  # Update in-memory collection for immediate feedback
+            player.pokemon_collection.append(CaughtPokemon.from_dict(pokemon_dict))  # Update in-memory collection for immediate feedback
             
             embed = discord.Embed(
                 title="🎉 Pokemon Caught!",
@@ -490,12 +501,12 @@ class BasicPokemonCommands:
         return await self._encounter_pokemon_logic(unified_ctx)
     
     async def catch_pokemon(self, ctx, ball_type: str = "normal") -> bool:
-        """Attempt to catch the currently encountered Pokemon (legacy prefix command)"""
+        """Attempt to catch the currently encountered Pokémon (legacy prefix command)"""
         unified_ctx = create_unified_context(ctx)
         return await self._catch_pokemon_logic(unified_ctx, ball_type)
     
     async def wild_catch(self, ctx) -> bool:
-        """Attempt to catch the current wild Pokemon in the pokemon channel (legacy prefix command)"""
+        """Attempt to catch the current wild Pokémon in the Pokémon channel (legacy prefix command)"""
         unified_ctx = create_unified_context(ctx)
         return await self._wild_catch_logic(unified_ctx)
     

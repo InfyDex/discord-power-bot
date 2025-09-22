@@ -52,12 +52,12 @@ class Pokemon(commands.Cog):
     
     @commands.command(name='catch')
     async def catch_pokemon(self, ctx, ball_type: str = "normal"):
-        """Attempt to catch the currently encountered Pokemon"""
+        """Attempt to catch the currently encountered Pokémon"""
         await self.basic_commands.catch_pokemon(ctx, ball_type)
     
     @commands.command(name='wild_catch', aliases=['wcatch'])
     async def wild_catch(self, ctx):
-        """Attempt to catch the current wild Pokemon in the pokemon channel"""
+        """Attempt to catch the current wild Pokémon in the Pokémon channel"""
         await self.basic_commands.wild_catch(ctx)
     
     @commands.command(name='wild_status', aliases=['wstatus'])

@@ -146,3 +146,17 @@ class MongoManager:
             }
         ]
         return list(self.caught_pokemon.aggregate(pipeline))
+
+    def get_last_pokemon(self, owner_id) -> Optional[Dict[str, Any]]:
+        """
+        Get the most recently added Pokémon for a specific user.
+
+        Args:
+            owner_id: Discord user ID of the owner
+        Returns:
+            The most recently added Pokémon document or None if not found
+        """
+        return self.caught_pokemon.find_one(
+            {"owner_id": owner_id},
+            sort=[("id", -1)]
+        )
