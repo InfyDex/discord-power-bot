@@ -148,9 +148,9 @@ class Pokemon(commands.Cog):
         await self.collection_commands.pokemon_collection(ctx, user, pokemon_identifier)
 
     @commands.command(name='pokedex_page', aliases=['ppage', 'pdex'])
-    async def pokedex_page(self, ctx, page_number: int = 1):
+    async def pokedex_page(self, ctx, page_number: int = 1, only_show_duplicates: bool = False):
         """View a specific page of the Pokédex (10 Pokémon per page)"""
-        await self.collection_commands.pokedex_page(ctx, page_number)
+        await self.collection_commands.pokedex_page(ctx, page_number, only_show_duplicates)
     
     @commands.command(name='pokemon_stats', aliases=['stats'])
     async def pokemon_stats(self, ctx):
@@ -355,11 +355,11 @@ class Pokemon(commands.Cog):
 
     @app_commands.command(name="pokedex_page", description="View a specific page of the Pokedex (10 Pokemon per page)")
     @app_commands.describe(page_number="Page number to view (default: 1)")
-    async def slash_pokedex_page(self, interaction: discord.Interaction, page_number: int = 1):
+    async def slash_pokedex_page(self, interaction: discord.Interaction, page_number: int = 1, only_show_duplicates: bool = False):
         """View a specific page of the Pokédex (slash command)"""
         from .pokemon_system.utils.interaction_utils import create_unified_context
         unified_ctx = create_unified_context(interaction)
-        await self.collection_commands.pokedex_page_logic(unified_ctx, page_number)
+        await self.collection_commands.pokedex_page_logic(unified_ctx, page_number, only_show_duplicates)
     
     @app_commands.command(name="leaderboard_rank", description="Check individual rank in all leaderboards")
     @app_commands.describe(user="User to check rank for (defaults to yourself)")

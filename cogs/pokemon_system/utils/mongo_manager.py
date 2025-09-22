@@ -128,7 +128,6 @@ class MongoManager:
         Returns:
             Number of Pokémon owned by the user
         """
-        owner_id = str(owner_id)
         return self.caught_pokemon.count_documents({"owner_id": owner_id})
 
     def get_pokemon_grouped_by_owner(self) -> List[Dict[str, Any]]:

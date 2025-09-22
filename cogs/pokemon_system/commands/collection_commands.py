@@ -184,13 +184,25 @@ class CollectionPokemonCommands:
         await unified_ctx.send(embed=embed)
         return True
 
-    async def pokedex_page_logic(self, unified_ctx: UnifiedContext, page_number: int) -> bool:
+    async def pokedex_page_logic(self, unified_ctx: UnifiedContext, page_number: int, only_show_duplicates: bool) -> bool:
         """
         Shared logic for both prefix and slash Pokédex page commands
         Returns True if successful, False if failed
         """
         pokedex_per_page = 10
-        total_pokemon = self.mongo_db.count_pokemon_by_owner(unified_ctx.author.id)
+        total_pokemon = 0
+        duplicate_name_count = {}
+        if only_show_duplicates:
+            # Get all Pokémon and filter for duplicates
+            all_pokemons = self.mongo_db.get_pokemon_by_owner(str(unified_ctx.author.id))
+            for p in all_pokemons:
+                name = p.get('name')
+                duplicate_name_count[name] = duplicate_name_count.get(name, 0) + 1
+            duplicate_names = {name for name, count in duplicate_name_count.items() if count > 1}
+            total_pokemon = sum(1 for p in all_pokemons if p.get('name') in duplicate_names)
+        else:
+            total_pokemon = self.mongo_db.count_pokemon_by_owner(str(unified_ctx.author.id))
+
         total_pages = (total_pokemon + pokedex_per_page - 1) // pokedex_per_page
 
         if page_number < 1 or page_number > total_pages:
@@ -202,25 +214,36 @@ class CollectionPokemonCommands:
             await unified_ctx.send(embed=embed)
             return False
 
-        # Fetch Pokémon for the requested page
-        pokemons_on_page = self.mongo_db.get_pokemon_by_owner(
-            str(unified_ctx.author.id),
-            page=page_number,
-            max_per_page = pokedex_per_page
-        )
-
         embed = discord.Embed(
             title=f"📖 Pokédex - Page {page_number}/{total_pages}",
             description="List of Pokémon in the database",
             color=discord.Color.purple()
         )
 
-        for pokemon in pokemons_on_page:
-            embed.add_field(
-                name=f"#{pokemon.get('id')} {pokemon.get('name')}",
-                value=f"Type: {', '.join(pokemon.get('types'))} | Rarity: {pokemon.get('rarity')}",
-                inline=False
+        if duplicate_name_count:
+            embed.description += " (Showing Duplicates Only)"
+            for (name, count) in duplicate_name_count.items():
+                if count > 1:
+                    embed.add_field(
+                        name=f"{name}",
+                        value=f"Count: {count}",
+                        inline=False
+                    )
+
+        else:
+            # Fetch Pokémon for the requested page
+            pokemons_on_page = self.mongo_db.get_pokemon_by_owner(
+                str(unified_ctx.author.id),
+                page=page_number,
+                max_per_page = pokedex_per_page
             )
+
+            for pokemon in pokemons_on_page:
+                embed.add_field(
+                    name=f"#{pokemon.get('id')} {pokemon.get('name')}",
+                    value=f"Type: {', '.join(pokemon.get('types'))} | Rarity: {pokemon.get('rarity')}",
+                    inline=False
+                )
 
         embed.set_footer(text=f"Requested by {unified_ctx.author.mention}")
 
@@ -296,7 +319,7 @@ class CollectionPokemonCommands:
         unified_ctx = create_unified_context(ctx)
         return await self._pokemon_info_logic(unified_ctx, pokemon_identifier)
 
-    async def pokedex_page(self, ctx, page_number: int):
+    async def pokedex_page(self, ctx, page_number: int, only_show_duplicates: bool):
         """View a page of the Pokédex (legacy prefix command)"""
         unified_ctx = create_unified_context(ctx)
-        return await self.pokedex_page_logic(unified_ctx, page_number)
+        return await self.pokedex_page_logic(unified_ctx, page_number, only_show_duplicates)
