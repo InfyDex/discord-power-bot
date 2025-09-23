@@ -166,7 +166,7 @@ class LegionBot(commands.Bot):
         
         # Set bot status
         await self.change_presence(
-            activity=discord.Game(name="Greeting people worldwide! 🌍")
+            activity=discord.Game(name="Hide and Seek with Pokémon & secrets! 🕵️‍")
         )
     
     async def close(self):

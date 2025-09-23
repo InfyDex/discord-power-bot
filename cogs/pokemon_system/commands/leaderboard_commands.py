@@ -372,10 +372,10 @@ class LeaderboardCommands:
         if target_user is None:
             target_user = ctx.author
         unified_ctx = create_unified_context(ctx)
-        await self._leaderboard_rank_all_logic(unified_ctx, target_user)
+        await self.leaderboard_rank_all_logic(unified_ctx, target_user)
 
     # Shared logic for showing all ranks
-    async def _leaderboard_rank_all_logic(self, unified_ctx, target_user: discord.Member):
+    async def leaderboard_rank_all_logic(self, unified_ctx, target_user: discord.Member):
         """Shared logic for showing all ranks at once"""
         # Get ranks for all leaderboard types
         pokemon_rank, pokemon_score, _ = self._get_user_rank(str(target_user.id), "pokemon_count")

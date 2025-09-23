@@ -1,6 +1,6 @@
 """
-Pokemon Game cog for the Legion Discord Bot
-Handles Pokemon encounters, catching, and collection management.
+Pokémon Game cog for the Legion Discord Bot
+Handles Pokémon encounters, catching, and collection management.
 Refactored to use modular architecture with separate managers and command groups.
 """
 
@@ -12,7 +12,7 @@ from .pokemon_system.commands import BasicPokemonCommands, CollectionPokemonComm
 from .pokemon_system.utils.mongo_manager import MongoManager
 
 class Pokemon(commands.Cog):
-    """Cog for Pokemon game functionality - Refactored Modular Version"""
+    """Cog for Pokémon game functionality - Refactored Modular Version"""
     
     def __init__(self, bot):
         self.bot = bot
@@ -47,7 +47,7 @@ class Pokemon(commands.Cog):
     # Prefix Commands
     @commands.command(name='encounter', aliases=['wild', 'pokemon'])
     async def encounter_pokemon(self, ctx):
-        """Encounter a wild Pokemon"""
+        """Encounter a wild Pokémon"""
         await self.basic_commands.encounter_pokemon(ctx)
     
     @commands.command(name='catch')
@@ -62,7 +62,7 @@ class Pokemon(commands.Cog):
     
     @commands.command(name='wild_status', aliases=['wstatus'])
     async def wild_status(self, ctx):
-        """Check the status of wild Pokemon spawning"""
+        """Check the status of wild Pokémon spawning"""
         await self.basic_commands.wild_status(ctx)
     
     @commands.command(name='daily_claim', aliases=['daily', 'claim'])
@@ -73,10 +73,10 @@ class Pokemon(commands.Cog):
     # Slash Commands
     @app_commands.command(name="encounter", description="Encounter a wild Pokemon (5-minute cooldown)")
     async def slash_encounter_pokemon(self, interaction: discord.Interaction):
-        """Encounter a wild Pokemon (slash command)"""
+        """Encounter a wild Pokémon (slash command)"""
         from .pokemon_system.utils.interaction_utils import create_unified_context
         unified_ctx = create_unified_context(interaction)
-        await self.basic_commands._encounter_pokemon_logic(unified_ctx)
+        await self.basic_commands.encounter_pokemon_logic(unified_ctx)
     
     @app_commands.command(name="catch", description="Attempt to catch your currently encountered Pokemon")
     @app_commands.describe(ball_type="Type of Pokeball to use (normal or master)")
@@ -85,31 +85,31 @@ class Pokemon(commands.Cog):
         app_commands.Choice(name="Master Ball (100% catch rate)", value="master")
     ])
     async def slash_catch_pokemon(self, interaction: discord.Interaction, ball_type: str = "normal"):
-        """Attempt to catch the currently encountered Pokemon (slash command)"""
+        """Attempt to catch the currently encountered Pokémon (slash command)"""
         from .pokemon_system.utils.interaction_utils import create_unified_context
         unified_ctx = create_unified_context(interaction)
-        await self.basic_commands._catch_pokemon_logic(unified_ctx, ball_type)
+        await self.basic_commands.catch_pokemon_logic(unified_ctx, ball_type)
     
     @app_commands.command(name="wild_catch", description="Attempt to catch the current wild Pokemon in #pokemon channel")
     async def slash_wild_catch(self, interaction: discord.Interaction):
-        """Attempt to catch the current wild Pokemon in the pokemon channel (slash command)"""
+        """Attempt to catch the current wild Pokémon in the Pokémon channel (slash command)"""
         from .pokemon_system.utils.interaction_utils import create_unified_context
         unified_ctx = create_unified_context(interaction)
-        await self.basic_commands._wild_catch_logic(unified_ctx)
+        await self.basic_commands.wild_catch_logic(unified_ctx)
     
     @app_commands.command(name="wild_status", description="Check the status of wild Pokemon spawning")
     async def slash_wild_status(self, interaction: discord.Interaction):
-        """Check the status of wild Pokemon spawning (slash command)"""
+        """Check the status of wild Pokémon spawning (slash command)"""
         from .pokemon_system.utils.interaction_utils import create_unified_context
         unified_ctx = create_unified_context(interaction)
-        await self.basic_commands._wild_status_logic(unified_ctx)
+        await self.basic_commands.wild_status_logic(unified_ctx)
     
     @app_commands.command(name="daily_claim", description="Claim your daily PokéCoin bonus (100 coins every 24 hours)")
     async def slash_daily_claim(self, interaction: discord.Interaction):
         """Claim your daily PokéCoin bonus (slash command)"""
         from .pokemon_system.utils.interaction_utils import create_unified_context
         unified_ctx = create_unified_context(interaction)
-        await self.basic_commands._daily_claim_logic(unified_ctx)
+        await self.basic_commands.daily_claim_logic(unified_ctx)
     
     # ===== SHOP COMMANDS =====
     
@@ -121,7 +121,7 @@ class Pokemon(commands.Cog):
     
     @commands.command(name='buy')
     async def buy_pokeball(self, ctx, ball_type: str, quantity: int = 1):
-        """Buy pokeballs from the shop"""
+        """Buy poke balls from the shop"""
         await self.shop_commands.buy_pokeball(ctx, ball_type, quantity)
     
     # Slash Commands
@@ -130,13 +130,13 @@ class Pokemon(commands.Cog):
         """View the pokeball shop (slash command)"""
         await self.shop_commands.show_shop(interaction)
     
-    @app_commands.command(name="buy", description="Purchase pokeballs from the shop using pokecoins")
+    @app_commands.command(name="buy", description="Purchase poke balls from the shop using poke coins")
     @app_commands.describe(
         ball_type="Type of pokeball to buy (poke, great, ultra, master)",
-        quantity="Number of pokeballs to purchase (default: 1)"
+        quantity="Number of poke balls to purchase (default: 1)"
     )
     async def buy_pokeball_slash(self, interaction: discord.Interaction, ball_type: str, quantity: int = 1):
-        """Buy pokeballs from the shop (slash command)"""
+        """Buy poke balls from the shop (slash command)"""
         await self.shop_commands.buy_pokeball(interaction, ball_type, quantity)
     
     # ===== COLLECTION COMMANDS =====
@@ -154,12 +154,12 @@ class Pokemon(commands.Cog):
     
     @commands.command(name='pokemon_stats', aliases=['stats'])
     async def pokemon_stats(self, ctx):
-        """View your Pokemon game statistics"""
+        """View your Pokémon game statistics"""
         await self.collection_commands.pokemon_stats(ctx)
     
     @commands.command(name='inventory', aliases=['inv', 'bag'])
     async def pokemon_inventory(self, ctx):
-        """View your Pokemon inventory and items"""
+        """View your Pokémon inventory and items"""
         await self.collection_commands.pokemon_inventory(ctx)
     
     @commands.command(name='pokemon_info', aliases=['pinfo', 'pokemon_detail'])
@@ -175,12 +175,12 @@ class Pokemon(commands.Cog):
     
     @commands.command(name='leaderboard_power', aliases=['lb_power', 'power_leaderboard'])
     async def leaderboard_power(self, ctx):
-        """View the total power leaderboard (top 10 by combined Pokemon power)"""
+        """View the total power leaderboard (top 10 by combined Pokémon power)"""
         await self.leaderboard_commands.leaderboard_power(ctx)
     
     @commands.command(name='leaderboard_rarity', aliases=['lb_rarity', 'rarity_leaderboard'])
     async def leaderboard_rarity(self, ctx):
-        """View the rarity score leaderboard (top 10 by rare Pokemon)"""
+        """View the rarity score leaderboard (top 10 by rare Pokémon)"""
         await self.leaderboard_commands.leaderboard_rarity(ctx)
     
     @commands.command(name='leaderboard_rank', aliases=['lb_rank', 'rank'])
@@ -203,37 +203,37 @@ class Pokemon(commands.Cog):
     
     @app_commands.command(name="pokemon_stats", description="View your Pokemon game statistics")
     async def slash_pokemon_stats(self, interaction: discord.Interaction):
-        """View your Pokemon game statistics (slash command)"""
+        """View your Pokémon game statistics (slash command)"""
         from .pokemon_system.utils.interaction_utils import create_unified_context
         unified_ctx = create_unified_context(interaction)
-        await self.collection_commands._pokemon_stats_logic(unified_ctx)
+        await self.collection_commands.pokemon_stats_logic(unified_ctx)
     
     @app_commands.command(name="inventory", description="View your Pokemon inventory and items")
     async def slash_pokemon_inventory(self, interaction: discord.Interaction):
-        """View your Pokemon inventory and items (slash command)"""
+        """View your Pokémon inventory and items (slash command)"""
         from .pokemon_system.utils.interaction_utils import create_unified_context
         unified_ctx = create_unified_context(interaction)
-        await self.collection_commands._pokemon_inventory_logic(unified_ctx)
+        await self.collection_commands.pokemon_inventory_logic(unified_ctx)
     
     @app_commands.command(name="pokemon_info", description="View detailed information about a specific Pokemon in your collection")
     @app_commands.describe(pokemon_identifier="Pokemon name or collection ID (e.g., 'Pikachu' or '#5')")
     async def slash_pokemon_info(self, interaction: discord.Interaction, pokemon_identifier: str):
-        """View detailed information about a specific Pokemon in your collection (slash command)"""
+        """View detailed information about a specific Pokémon in your collection (slash command)"""
         from .pokemon_system.utils.interaction_utils import create_unified_context
         unified_ctx = create_unified_context(interaction)
-        await self.collection_commands._pokemon_info_logic(unified_ctx, pokemon_identifier)
+        await self.collection_commands.pokemon_info_logic(unified_ctx, pokemon_identifier)
     
     # ===== ADMIN COMMANDS =====
     
     # Prefix Commands
     @commands.command(name='pokemon_admin', aliases=['padmin'])
     async def pokemon_admin(self, ctx):
-        """Admin command to view Pokemon database statistics"""
+        """Admin command to view Pokémon database statistics"""
         await self.admin_commands.pokemon_admin(ctx)
     
     @commands.command(name='give_pokeball', aliases=['give_ball', 'pokeball_admin'])
     async def give_pokeball(self, ctx, user: discord.Member, ball_type: str, count: int):
-        """Admin command to give pokeballs to a user"""
+        """Admin command to give poke balls to a user"""
         await self.admin_commands.give_pokeball(ctx, user, ball_type, count)
     
     @commands.command(name='give_pokecoins', aliases=['give_coins', 'coins_admin'])
@@ -243,7 +243,7 @@ class Pokemon(commands.Cog):
     
     @commands.command(name='force_wild_spawn', aliases=['fws'])
     async def force_wild_spawn(self, ctx):
-        """Admin command to manually trigger a wild Pokemon spawn"""
+        """Admin command to manually trigger a wild Pokémon spawn"""
         await self.admin_commands.force_wild_spawn(ctx)
     
     @commands.command(name='debug_channels', aliases=['dchannels'])
@@ -254,7 +254,7 @@ class Pokemon(commands.Cog):
     # Slash Commands
     @app_commands.command(name="pokemon_admin", description="View Pokemon database statistics (Admin only)")
     async def slash_pokemon_admin(self, interaction: discord.Interaction):
-        """Admin command to view Pokemon database statistics (slash command)"""
+        """Admin command to view Pokémon database statistics (slash command)"""
         # For now, create a quick ctx-like object for admin commands
         # TODO: Refactor admin commands to use unified context
         class QuickCtx:
@@ -307,7 +307,7 @@ class Pokemon(commands.Cog):
     
     @app_commands.command(name="force_wild_spawn", description="Manually trigger a wild Pokemon spawn (Admin only)")
     async def slash_force_wild_spawn(self, interaction: discord.Interaction):
-        """Admin command to manually trigger a wild Pokemon spawn (slash command)"""
+        """Admin command to manually trigger a wild Pokémon spawn (slash command)"""
         # For now, create a quick ctx-like object for admin commands
         class QuickCtx:
             def __init__(self, interaction, bot):
@@ -369,7 +369,7 @@ class Pokemon(commands.Cog):
         if user is None:
             user = interaction.user
         unified_ctx = create_unified_context(interaction)
-        await self.leaderboard_commands._leaderboard_rank_all_logic(unified_ctx, user)
+        await self.leaderboard_commands.leaderboard_rank_all_logic(unified_ctx, user)
 
 
 async def setup(bot):

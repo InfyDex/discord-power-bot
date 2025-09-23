@@ -76,7 +76,7 @@ class CollectionPokemonCommands:
         await unified_ctx.send(embed=embed)
         return True
     
-    async def _pokemon_stats_logic(self, unified_ctx: UnifiedContext) -> bool:
+    async def pokemon_stats_logic(self, unified_ctx: UnifiedContext) -> bool:
         """
         Shared logic for both prefix and slash stats commands
         Returns True if successful, False if failed
@@ -135,7 +135,7 @@ class CollectionPokemonCommands:
         await unified_ctx.send(embed=embed)
         return True
     
-    async def _pokemon_inventory_logic(self, unified_ctx: UnifiedContext) -> bool:
+    async def pokemon_inventory_logic(self, unified_ctx: UnifiedContext) -> bool:
         """
         Shared logic for both prefix and slash inventory commands
         Returns True if successful, False if failed
@@ -260,7 +260,7 @@ class CollectionPokemonCommands:
         await unified_ctx.send(embed=embed)
         return True
     
-    async def _pokemon_info_logic(self, unified_ctx: UnifiedContext, pokemon_identifier: str) -> bool:
+    async def pokemon_info_logic(self, unified_ctx: UnifiedContext, pokemon_identifier: str) -> bool:
         """
         Shared logic for both prefix and slash Pokémon info commands
         Returns True if successful, False if failed
@@ -315,17 +315,17 @@ class CollectionPokemonCommands:
     async def pokemon_stats(self, ctx):
         """View your Pokémon game statistics (legacy prefix command)"""
         unified_ctx = create_unified_context(ctx)
-        return await self._pokemon_stats_logic(unified_ctx)
+        return await self.pokemon_stats_logic(unified_ctx)
     
     async def pokemon_inventory(self, ctx):
         """View your Pokémon inventory and items (legacy prefix command)"""
         unified_ctx = create_unified_context(ctx)
-        return await self._pokemon_inventory_logic(unified_ctx)
+        return await self.pokemon_inventory_logic(unified_ctx)
     
     async def pokemon_info(self, ctx, *, pokemon_identifier):
         """View detailed information about a specific Pokémon in your collection (legacy prefix command)"""
         unified_ctx = create_unified_context(ctx)
-        return await self._pokemon_info_logic(unified_ctx, pokemon_identifier)
+        return await self.pokemon_info_logic(unified_ctx, pokemon_identifier)
 
     async def pokedex_page(self, ctx, page_number: int, only_show_duplicates: bool):
         """View a page of the Pokédex (legacy prefix command)"""

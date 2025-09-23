@@ -73,7 +73,7 @@ class BasicPokemonCommands:
     
     # ========== SHARED LOGIC FUNCTIONS ==========
     
-    async def _encounter_pokemon_logic(self, unified_ctx: UnifiedContext) -> bool:
+    async def encounter_pokemon_logic(self, unified_ctx: UnifiedContext) -> bool:
         """
         Shared logic for both prefix and slash encounter commands
         Returns True if successful, False if failed
@@ -117,7 +117,7 @@ class BasicPokemonCommands:
         await unified_ctx.send(embed=embed)
         return True
     
-    async def _catch_pokemon_logic(self, unified_ctx: UnifiedContext, ball_type: str = "normal") -> bool:
+    async def catch_pokemon_logic(self, unified_ctx: UnifiedContext, ball_type: str = "normal") -> bool:
         """
         Shared logic for both prefix and slash catch commands
         Returns True if successful, False if failed
@@ -240,7 +240,7 @@ class BasicPokemonCommands:
         await unified_ctx.send(embed=embed)
         return success
     
-    async def _wild_catch_logic(self, unified_ctx: UnifiedContext) -> bool:
+    async def wild_catch_logic(self, unified_ctx: UnifiedContext) -> bool:
         """
         Shared logic for both prefix and slash wild catch commands
         Returns True if successful, False if failed
@@ -387,7 +387,7 @@ class BasicPokemonCommands:
         await unified_ctx.send(embed=embed)
         return success
     
-    async def _wild_status_logic(self, unified_ctx: UnifiedContext) -> bool:
+    async def wild_status_logic(self, unified_ctx: UnifiedContext) -> bool:
         """
         Shared logic for wild status commands
         Returns True if successful, False if failed
@@ -421,7 +421,7 @@ class BasicPokemonCommands:
         await unified_ctx.send(embed=embed)
         return True
     
-    async def _daily_claim_logic(self, unified_ctx: UnifiedContext) -> bool:
+    async def daily_claim_logic(self, unified_ctx: UnifiedContext) -> bool:
         """
         Shared logic for both prefix and slash daily claim commands
         Returns True if successful, False if failed
@@ -496,26 +496,26 @@ class BasicPokemonCommands:
     # ========== LEGACY PREFIX COMMANDS ==========
     
     async def encounter_pokemon(self, ctx) -> bool:
-        """Encounter a wild Pokemon (legacy prefix command)"""
+        """Encounter a wild Pokémon (legacy prefix command)"""
         unified_ctx = create_unified_context(ctx)
-        return await self._encounter_pokemon_logic(unified_ctx)
+        return await self.encounter_pokemon_logic(unified_ctx)
     
     async def catch_pokemon(self, ctx, ball_type: str = "normal") -> bool:
         """Attempt to catch the currently encountered Pokémon (legacy prefix command)"""
         unified_ctx = create_unified_context(ctx)
-        return await self._catch_pokemon_logic(unified_ctx, ball_type)
+        return await self.catch_pokemon_logic(unified_ctx, ball_type)
     
     async def wild_catch(self, ctx) -> bool:
         """Attempt to catch the current wild Pokémon in the Pokémon channel (legacy prefix command)"""
         unified_ctx = create_unified_context(ctx)
-        return await self._wild_catch_logic(unified_ctx)
+        return await self.wild_catch_logic(unified_ctx)
     
     async def wild_status(self, ctx) -> bool:
-        """Check the status of wild Pokemon spawning (legacy prefix command)"""
+        """Check the status of wild Pokémon spawning (legacy prefix command)"""
         unified_ctx = create_unified_context(ctx)
-        return await self._wild_status_logic(unified_ctx)
+        return await self.wild_status_logic(unified_ctx)
     
     async def daily_claim(self, ctx) -> bool:
         """Claim daily PokéCoin bonus (legacy prefix command)"""
         unified_ctx = create_unified_context(ctx)
-        return await self._daily_claim_logic(unified_ctx)
+        return await self.daily_claim_logic(unified_ctx)
