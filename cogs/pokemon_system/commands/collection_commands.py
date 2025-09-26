@@ -342,11 +342,26 @@ class CollectionPokemonCommands:
         user_id = str(unified_ctx.author.id)
         
         # Validate index
-        if not (1 <= index <= 6):
+        if not isinstance(index, int) or not (1 <= index <= 6):
             embed = discord.Embed(
                 title="❌ Invalid Party Index",
-                description="Party index must be between 1 and 6.",
+                description="Party index must be a number between 1 and 6.",
                 color=discord.Color.red()
+            )
+            await unified_ctx.send(embed=embed)
+            return False
+        
+        # Validate pokemon_id
+        if not isinstance(pokemon_id, int) or pokemon_id <= 0:
+            embed = discord.Embed(
+                title="❌ Invalid Pokemon ID",
+                description="Pokemon ID must be a positive number.",
+                color=discord.Color.red()
+            )
+            embed.add_field(
+                name="💡 Tip", 
+                value="Use `!collection` to see valid Pokemon IDs.", 
+                inline=False
             )
             await unified_ctx.send(embed=embed)
             return False
@@ -455,13 +470,9 @@ class CollectionPokemonCommands:
             await unified_ctx.send(embed=embed)
             return True
         
-        embed = discord.Embed(
-            title=f"📋 {unified_ctx.author.display_name}'s Pokémon Party",
-            description="Your current party lineup:",
-            color=discord.Color.blue()
-        )
-        
-        embed.set_thumbnail(url=unified_ctx.author.display_avatar.url)
+        # Get user's actual Pokemon collection for validation
+        user_pokemon = self.mongo_db.get_pokemon_by_owner(user_id)
+        valid_pokemon_ids = {pokemon.get('id') for pokemon in user_pokemon}
         
         # Map party slots
         slot_map = {
@@ -473,6 +484,30 @@ class CollectionPokemonCommands:
             6: "sixth_pokemon"
         }
         
+        # Check for orphaned references and clean them up
+        cleaned_party = dict(party)
+        has_orphaned = False
+        
+        for slot_num, slot_field in slot_map.items():
+            pokemon_id = party.get(slot_field)
+            if pokemon_id and pokemon_id not in valid_pokemon_ids:
+                cleaned_party[slot_field] = None
+                has_orphaned = True
+        
+        # If we found orphaned references, update the party and recurse
+        if has_orphaned:
+            self.mongo_db.create_or_update_party(user_id, cleaned_party)
+            # Recursively call this function to show the cleaned party
+            return await self.party_show_logic(unified_ctx)
+        
+        embed = discord.Embed(
+            title=f"📋 {unified_ctx.author.display_name}'s Pokémon Party",
+            description="Your current party lineup:",
+            color=discord.Color.blue()
+        )
+        
+        embed.set_thumbnail(url=unified_ctx.author.display_avatar.url)
+        
         party_count = 0
         
         for slot_num in range(1, 7):
@@ -481,7 +516,6 @@ class CollectionPokemonCommands:
             
             if pokemon_id:
                 # Get Pokémon details
-                user_pokemon = self.mongo_db.get_pokemon_by_owner(user_id)
                 pokemon_data = None
                 
                 for pokemon in user_pokemon:
@@ -494,12 +528,6 @@ class CollectionPokemonCommands:
                     embed.add_field(
                         name=f"🔹 Slot {slot_num}",
                         value=f"**{pokemon_data['name']}** (#{pokemon_id})\nType: {', '.join(pokemon_data['types'])}\nRarity: {pokemon_data['rarity']}",
-                        inline=True
-                    )
-                else:
-                    embed.add_field(
-                        name=f"🔹 Slot {slot_num}",
-                        value=f"*Pokémon #{pokemon_id} not found*",
                         inline=True
                     )
             else:
@@ -517,7 +545,7 @@ class CollectionPokemonCommands:
         
         embed.add_field(
             name="💡 Tips",
-            value="• Use `!party_add <slot> <pokemon_id>` to add Pokémon\n• Use `!collection` to see your Pokémon IDs",
+            value="• Use `!party_add <slot> <pokemon_id>` to add Pokémon\n• Use `!party_remove <slot>` to remove specific Pokémon\n• Use `!collection` to see your Pokémon IDs",
             inline=False
         )
         
@@ -542,10 +570,10 @@ class CollectionPokemonCommands:
         user_id = str(unified_ctx.author.id)
         
         # Validate index
-        if not (1 <= index <= 6):
+        if not isinstance(index, int) or not (1 <= index <= 6):
             embed = discord.Embed(
                 title="❌ Invalid Party Index",
-                description="Party index must be between 1 and 6.",
+                description="Party index must be a number between 1 and 6.",
                 color=discord.Color.red()
             )
             await unified_ctx.send(embed=embed)
