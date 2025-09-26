@@ -331,3 +331,294 @@ class CollectionPokemonCommands:
         """View a page of the Pokédex (legacy prefix command)"""
         unified_ctx = create_unified_context(ctx)
         return await self.pokedex_page_logic(unified_ctx, page_number, only_show_duplicates)
+    
+    # ========== PARTY MANAGEMENT COMMANDS ==========
+    
+    async def party_add_logic(self, unified_ctx: UnifiedContext, index: int, pokemon_id: int) -> bool:
+        """
+        Shared logic for adding Pokémon to party
+        Returns True if successful, False if failed
+        """
+        user_id = str(unified_ctx.author.id)
+        
+        # Validate index
+        if not (1 <= index <= 6):
+            embed = discord.Embed(
+                title="❌ Invalid Party Index",
+                description="Party index must be between 1 and 6.",
+                color=discord.Color.red()
+            )
+            await unified_ctx.send(embed=embed)
+            return False
+        
+        # Check if user owns the Pokémon
+        user_pokemon = self.mongo_db.get_pokemon_by_owner(user_id)
+        owned_pokemon = None
+        
+        for pokemon in user_pokemon:
+            if pokemon.get('id') == pokemon_id:
+                owned_pokemon = pokemon
+                break
+        
+        if not owned_pokemon:
+            embed = discord.Embed(
+                title="❌ Pokémon Not Found",
+                description=f"You don't own a Pokémon with ID #{pokemon_id}.",
+                color=discord.Color.red()
+            )
+            embed.add_field(
+                name="💡 Tip", 
+                value="Use `!collection` to see your Pokémon and their IDs.", 
+                inline=False
+            )
+            await unified_ctx.send(embed=embed)
+            return False
+        
+        # Check if Pokémon is already in party
+        existing_party = self.mongo_db.get_party(user_id)
+        if existing_party:
+            slot_map = {
+                1: "first_pokemon",
+                2: "second_pokemon",
+                3: "third_pokemon", 
+                4: "fourth_pokemon",
+                5: "fifth_pokemon",
+                6: "sixth_pokemon"
+            }
+            
+            for slot_num, slot_field in slot_map.items():
+                if existing_party.get(slot_field) == pokemon_id and slot_num != index:
+                    embed = discord.Embed(
+                        title="❌ Pokémon Already in Party",
+                        description=f"**{owned_pokemon['name']}** is already in your party at slot {slot_num}!\nEach Pokémon can only be in one party slot.",
+                        color=discord.Color.red()
+                    )
+                    embed.add_field(
+                        name="💡 Tip", 
+                        value=f"Remove it from slot {slot_num} first, or choose a different Pokémon.", 
+                        inline=False
+                    )
+                    await unified_ctx.send(embed=embed)
+                    return False
+        
+        # Add Pokémon to party
+        success = self.mongo_db.add_pokemon_to_party(user_id, index, pokemon_id)
+        
+        if success:
+            embed = discord.Embed(
+                title="✅ Pokémon Added to Party",
+                description=f"**{owned_pokemon['name']}** (#{pokemon_id}) has been added to party slot {index}!",
+                color=discord.Color.green()
+            )
+            
+            # Add Pokémon details
+            embed.add_field(name="Name", value=owned_pokemon['name'], inline=True)
+            embed.add_field(name="Type", value=", ".join(owned_pokemon['types']), inline=True)
+            embed.add_field(name="Rarity", value=owned_pokemon['rarity'], inline=True)
+            embed.add_field(name="Party Slot", value=f"Position {index}", inline=True)
+            
+            if 'sprite_url' in owned_pokemon and owned_pokemon['sprite_url']:
+                embed.set_thumbnail(url=owned_pokemon['sprite_url'])
+            
+            await unified_ctx.send(embed=embed)
+            return True
+        else:
+            embed = discord.Embed(
+                title="❌ Failed to Add Pokémon",
+                description="An error occurred while adding the Pokémon to your party.",
+                color=discord.Color.red()
+            )
+            await unified_ctx.send(embed=embed)
+            return False
+    
+    async def party_show_logic(self, unified_ctx: UnifiedContext) -> bool:
+        """
+        Shared logic for showing user's party
+        Returns True if successful, False if failed
+        """
+        user_id = str(unified_ctx.author.id)
+        
+        # Get user's party
+        party = self.mongo_db.get_party(user_id)
+        
+        if not party:
+            embed = discord.Embed(
+                title="📋 Your Pokémon Party",
+                description="Your party is empty! Use `!party_add <index> <pokemon_id>` to add Pokémon.",
+                color=discord.Color.blue()
+            )
+            embed.add_field(
+                name="🔹 How to add Pokémon:", 
+                value="1. Use `!collection` to see your Pokémon IDs\n2. Use `!party_add 1 25` to add Pokémon #25 to slot 1", 
+                inline=False
+            )
+            await unified_ctx.send(embed=embed)
+            return True
+        
+        embed = discord.Embed(
+            title=f"📋 {unified_ctx.author.display_name}'s Pokémon Party",
+            description="Your current party lineup:",
+            color=discord.Color.blue()
+        )
+        
+        embed.set_thumbnail(url=unified_ctx.author.display_avatar.url)
+        
+        # Map party slots
+        slot_map = {
+            1: "first_pokemon",
+            2: "second_pokemon",
+            3: "third_pokemon", 
+            4: "fourth_pokemon",
+            5: "fifth_pokemon",
+            6: "sixth_pokemon"
+        }
+        
+        party_count = 0
+        
+        for slot_num in range(1, 7):
+            slot_field = slot_map[slot_num]
+            pokemon_id = party.get(slot_field)
+            
+            if pokemon_id:
+                # Get Pokémon details
+                user_pokemon = self.mongo_db.get_pokemon_by_owner(user_id)
+                pokemon_data = None
+                
+                for pokemon in user_pokemon:
+                    if pokemon.get('id') == pokemon_id:
+                        pokemon_data = pokemon
+                        break
+                
+                if pokemon_data:
+                    party_count += 1
+                    embed.add_field(
+                        name=f"🔹 Slot {slot_num}",
+                        value=f"**{pokemon_data['name']}** (#{pokemon_id})\nType: {', '.join(pokemon_data['types'])}\nRarity: {pokemon_data['rarity']}",
+                        inline=True
+                    )
+                else:
+                    embed.add_field(
+                        name=f"🔹 Slot {slot_num}",
+                        value=f"*Pokémon #{pokemon_id} not found*",
+                        inline=True
+                    )
+            else:
+                embed.add_field(
+                    name=f"🔸 Slot {slot_num}",
+                    value="*Empty*",
+                    inline=True
+                )
+        
+        embed.add_field(
+            name="📊 Party Stats",
+            value=f"**{party_count}/6** slots filled",
+            inline=False
+        )
+        
+        embed.add_field(
+            name="💡 Tips",
+            value="• Use `!party_add <slot> <pokemon_id>` to add Pokémon\n• Use `!collection` to see your Pokémon IDs",
+            inline=False
+        )
+        
+        await unified_ctx.send(embed=embed)
+        return True
+    
+    async def party_add(self, ctx, index: int, pokemon_id: int):
+        """Add a Pokémon to your party (legacy prefix command)"""
+        unified_ctx = create_unified_context(ctx)
+        return await self.party_add_logic(unified_ctx, index, pokemon_id)
+    
+    async def party_show(self, ctx):
+        """Show your current party (legacy prefix command)"""
+        unified_ctx = create_unified_context(ctx)
+        return await self.party_show_logic(unified_ctx)
+    
+    async def party_remove_logic(self, unified_ctx: UnifiedContext, index: int) -> bool:
+        """
+        Shared logic for removing Pokémon from party
+        Returns True if successful, False if failed
+        """
+        user_id = str(unified_ctx.author.id)
+        
+        # Validate index
+        if not (1 <= index <= 6):
+            embed = discord.Embed(
+                title="❌ Invalid Party Index",
+                description="Party index must be between 1 and 6.",
+                color=discord.Color.red()
+            )
+            await unified_ctx.send(embed=embed)
+            return False
+        
+        # Get current party
+        party = self.mongo_db.get_party(user_id)
+        if not party:
+            embed = discord.Embed(
+                title="❌ No Party Found",
+                description="You don't have a party yet! Use `!party_add` to add Pokémon first.",
+                color=discord.Color.red()
+            )
+            await unified_ctx.send(embed=embed)
+            return False
+        
+        # Check if slot has a Pokémon
+        slot_map = {
+            1: "first_pokemon",
+            2: "second_pokemon",
+            3: "third_pokemon", 
+            4: "fourth_pokemon",
+            5: "fifth_pokemon",
+            6: "sixth_pokemon"
+        }
+        
+        slot_field = slot_map[index]
+        pokemon_id = party.get(slot_field)
+        
+        if not pokemon_id:
+            embed = discord.Embed(
+                title="❌ Slot Already Empty",
+                description=f"Party slot {index} is already empty!",
+                color=discord.Color.red()
+            )
+            await unified_ctx.send(embed=embed)
+            return False
+        
+        # Get Pokémon details for confirmation
+        user_pokemon = self.mongo_db.get_pokemon_by_owner(user_id)
+        pokemon_data = None
+        
+        for pokemon in user_pokemon:
+            if pokemon.get('id') == pokemon_id:
+                pokemon_data = pokemon
+                break
+        
+        # Remove Pokémon from party
+        success = self.mongo_db.remove_pokemon_from_party(user_id, index)
+        
+        if success:
+            pokemon_name = pokemon_data['name'] if pokemon_data else f"Pokemon #{pokemon_id}"
+            embed = discord.Embed(
+                title="✅ Pokémon Removed from Party",
+                description=f"**{pokemon_name}** has been removed from party slot {index}!",
+                color=discord.Color.green()
+            )
+            
+            if pokemon_data and 'sprite_url' in pokemon_data and pokemon_data['sprite_url']:
+                embed.set_thumbnail(url=pokemon_data['sprite_url'])
+            
+            await unified_ctx.send(embed=embed)
+            return True
+        else:
+            embed = discord.Embed(
+                title="❌ Failed to Remove Pokémon",
+                description="An error occurred while removing the Pokémon from your party.",
+                color=discord.Color.red()
+            )
+            await unified_ctx.send(embed=embed)
+            return False
+    
+    async def party_remove(self, ctx, index: int):
+        """Remove a Pokémon from your party at a specific index (legacy prefix command)"""
+        unified_ctx = create_unified_context(ctx)
+        return await self.party_remove_logic(unified_ctx, index)

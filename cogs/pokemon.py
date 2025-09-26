@@ -167,6 +167,22 @@ class Pokemon(commands.Cog):
         """View detailed information about a specific Pokémon in your collection"""
         await self.collection_commands.pokemon_info(ctx, pokemon_identifier=pokemon_identifier)
     
+    # Party Management Commands
+    @commands.command(name='party_add')
+    async def party_add(self, ctx, index: int, pokemon_id: int):
+        """Add a Pokémon to your party at a specific index (1-6)"""
+        await self.collection_commands.party_add(ctx, index, pokemon_id)
+    
+    @commands.command(name='party')
+    async def party_show(self, ctx):
+        """Show your current Pokémon party"""
+        await self.collection_commands.party_show(ctx)
+    
+    @commands.command(name='party_remove')
+    async def party_remove(self, ctx, index: int):
+        """Remove a Pokémon from your party at a specific index (1-6)"""
+        await self.collection_commands.party_remove(ctx, index)
+    
     # Leaderboard Commands
     @commands.command(name='leaderboard_pokemon', aliases=['lb_pokemon', 'pokemon_leaderboard', 'lbp'])
     async def leaderboard_pokemon(self, ctx):
@@ -222,6 +238,32 @@ class Pokemon(commands.Cog):
         from .pokemon_system.utils.interaction_utils import create_unified_context
         unified_ctx = create_unified_context(interaction)
         await self.collection_commands.pokemon_info_logic(unified_ctx, pokemon_identifier)
+    
+    @app_commands.command(name="party_add", description="Add a Pokemon to your party at a specific slot")
+    @app_commands.describe(
+        index="Party slot number (1-6)",
+        pokemon_id="ID of the Pokemon from your collection"
+    )
+    async def slash_party_add(self, interaction: discord.Interaction, index: int, pokemon_id: int):
+        """Add a Pokémon to your party at a specific index (slash command)"""
+        from .pokemon_system.utils.interaction_utils import create_unified_context
+        unified_ctx = create_unified_context(interaction)
+        await self.collection_commands.party_add_logic(unified_ctx, index, pokemon_id)
+    
+    @app_commands.command(name="party", description="View your current Pokemon party")
+    async def slash_party_show(self, interaction: discord.Interaction):
+        """Show your current Pokémon party (slash command)"""
+        from .pokemon_system.utils.interaction_utils import create_unified_context
+        unified_ctx = create_unified_context(interaction)
+        await self.collection_commands.party_show_logic(unified_ctx)
+    
+    @app_commands.command(name="party_remove", description="Remove a Pokemon from your party")
+    @app_commands.describe(index="Party slot number (1-6) to remove Pokemon from")
+    async def slash_party_remove(self, interaction: discord.Interaction, index: int):
+        """Remove a Pokémon from your party at a specific index (slash command)"""
+        from .pokemon_system.utils.interaction_utils import create_unified_context
+        unified_ctx = create_unified_context(interaction)
+        await self.collection_commands.party_remove_logic(unified_ctx, index)
     
     # ===== ADMIN COMMANDS =====
     

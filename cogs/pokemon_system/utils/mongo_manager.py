@@ -24,6 +24,7 @@ class MongoManager:
         self.client = MongoClient(mongo_uri)
         self.db = self.client[db_name]
         self.caught_pokemon = self.db["caught_pokemon"]
+        self.pokemon_parties = self.db["pokemon_parties"]
         
         # Create indexes for better query performance
         self._create_indexes()
@@ -32,6 +33,7 @@ class MongoManager:
         """Create necessary indexes for better query performance"""
         # Index for owner_id for faster lookups
         self.caught_pokemon.create_index("owner_id")
+        self.pokemon_parties.create_index("owner_id")
         
     def add_pokemon(self, pokemon_data: Dict[str, Any]) -> str:
         """
@@ -86,7 +88,7 @@ class MongoManager:
         """
         try:
             return self.caught_pokemon.find_one({"_id": ObjectId(pokemon_id)})
-        except:
+        except Exception:
             return None
             
     def delete_pokemon(self, pokemon_id: str) -> bool:
@@ -102,7 +104,7 @@ class MongoManager:
         try:
             result = self.caught_pokemon.delete_one({"_id": ObjectId(pokemon_id)})
             return result.deleted_count > 0
-        except:
+        except Exception:
             return False
             
     def delete_all_pokemon_by_owner(self, owner_id: str) -> int:
@@ -160,3 +162,125 @@ class MongoManager:
             {"owner_id": owner_id},
             sort=[("id", -1)]
         )
+    
+    # ========== PARTY MANAGEMENT METHODS ==========
+    
+    def get_party(self, owner_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get a user's Pokémon party
+        
+        Args:
+            owner_id: Discord user ID of the owner
+            
+        Returns:
+            Party document or None if not found
+        """
+        return self.pokemon_parties.find_one({"owner_id": owner_id})
+    
+    def create_or_update_party(self, owner_id: str, party_data: Dict[str, Any]) -> str:
+        """
+        Create or update a user's Pokémon party
+        
+        Args:
+            owner_id: Discord user ID of the owner
+            party_data: Dictionary containing party data
+            
+        Returns:
+            ID of the inserted/updated document
+        """
+        party_data["owner_id"] = owner_id
+        
+        # Check if party already exists
+        existing_party = self.get_party(owner_id)
+        
+        if existing_party:
+            # Update existing party
+            result = self.pokemon_parties.update_one(
+                {"owner_id": owner_id},
+                {"$set": party_data}
+            )
+            return str(existing_party["_id"])
+        else:
+            # Create new party
+            result = self.pokemon_parties.insert_one(party_data)
+            return str(result.inserted_id)
+    
+    def add_pokemon_to_party(self, owner_id: str, index: int, pokemon_id: int) -> bool:
+        """
+        Add a Pokémon to a specific index in the party
+        
+        Args:
+            owner_id: Discord user ID of the owner
+            index: Party index (1-6)
+            pokemon_id: ID of the Pokémon to add
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        if not (1 <= index <= 6):
+            return False
+        
+        # Get existing party or create default
+        party = self.get_party(owner_id)
+        if not party:
+            party = {
+                "owner_id": owner_id,
+                "first_pokemon": None,
+                "second_pokemon": None,
+                "third_pokemon": None,
+                "fourth_pokemon": None,
+                "fifth_pokemon": None,
+                "sixth_pokemon": None
+            }
+        
+        # Map index to field name
+        field_map = {
+            1: "first_pokemon",
+            2: "second_pokemon", 
+            3: "third_pokemon",
+            4: "fourth_pokemon",
+            5: "fifth_pokemon",
+            6: "sixth_pokemon"
+        }
+        
+        # Update the specific slot
+        party[field_map[index]] = pokemon_id
+        
+        # Save the party
+        self.create_or_update_party(owner_id, party)
+        return True
+    
+    def remove_pokemon_from_party(self, owner_id: str, index: int) -> bool:
+        """
+        Remove a Pokémon from a specific index in the party
+        
+        Args:
+            owner_id: Discord user ID of the owner
+            index: Party index (1-6)
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        if not (1 <= index <= 6):
+            return False
+        
+        party = self.get_party(owner_id)
+        if not party:
+            return False
+        
+        # Map index to field name
+        field_map = {
+            1: "first_pokemon",
+            2: "second_pokemon", 
+            3: "third_pokemon",
+            4: "fourth_pokemon",
+            5: "fifth_pokemon",
+            6: "sixth_pokemon"
+        }
+        
+        # Remove the Pokémon from the specific slot
+        party[field_map[index]] = None
+        
+        # Save the party
+        self.create_or_update_party(owner_id, party)
+        return True

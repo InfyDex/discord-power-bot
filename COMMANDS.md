@@ -153,6 +153,30 @@ Catch, collect, and manage your Pokemon in this engaging mini-game! The system f
 
 ---
 
+#### 🎯 Party Management
+
+**Manage Your Pokemon Party:**
+- `/party_add <index> <pokemon_id>` - Add a Pokemon to your party at a specific slot (1-6)
+- `!party_add <index> <pokemon_id>` - Add a Pokemon to your party (prefix command)
+- `/party_remove <index>` - Remove a Pokemon from your party at a specific slot (1-6)
+- `!party_remove <index>` - Remove a Pokemon from your party (prefix command)
+- `/party` - View your current Pokemon party
+- `!party` - View your current Pokemon party (prefix command)
+
+**Party System:**
+- Maximum 6 Pokemon per party (like in the main games)
+- Use Pokemon IDs from your collection (view with `!collection`)
+- Each party slot can hold one Pokemon
+- Each Pokemon can only be in one party slot (no duplicates)
+- Adding a Pokemon to an occupied slot will replace the existing Pokemon
+
+**Examples:**
+- `/party_add 1 25` or `!party_add 1 25` - Add Pokemon #25 to party slot 1
+- `/party_remove 3` or `!party_remove 3` - Remove Pokemon from party slot 3
+- `/party` or `!party` - View your current party lineup
+
+---
+
 #### 🔧 Admin Commands
 *These commands require admin permissions*
 
@@ -442,7 +466,7 @@ This document will be updated whenever new commands are added to the bot. Check 
 | Category | Slash Commands | Prefix Commands |
 |----------|---------------|-----------------|
 | **Games** | `/flip`, `/roll` | `!flip`, `!coin`, `!roll`, `!dice`, `!r` |
-| **Pokemon** | `/encounter`, `/catch`, `/wild_catch`, `/collection`, `/pokemon_stats`, `/inventory`, `/pokemon_info` | `!encounter`, `!catch`, `!wild_catch`, `!collection`, `!stats`, `!inventory`, `!pokemon_info` |
+| **Pokemon** | `/encounter`, `/catch`, `/wild_catch`, `/collection`, `/pokemon_stats`, `/inventory`, `/pokemon_info`, `/party_add`, `/party_remove`, `/party` | `!encounter`, `!catch`, `!wild_catch`, `!collection`, `!stats`, `!inventory`, `!pokemon_info`, `!party_add`, `!party_remove`, `!party` |
 | **Pokemon Leaderboards** | `/leaderboard_pokemon`, `/leaderboard_power`, `/leaderboard_rarity`, `/leaderboard_rank` | `!leaderboard_pokemon`, `!leaderboard_power`, `!leaderboard_rarity`, `!leaderboard_rank`, `!lb_pokemon`, `!lb_power`, `!lb_rarity`, `!rank` |
 | **Pokemon Admin** | `/pokemon_admin`, `/give_pokeball`, `/force_wild_spawn`, `/debug_channels` | `!pokemon_admin`, `!give_pokeball`, `!force_wild_spawn`, `!debug_channels` |
 | **Greetings** | - | `!greet`, `!greetings` |
