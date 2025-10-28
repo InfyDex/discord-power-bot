@@ -19,17 +19,17 @@ class ShopCommands:
     # Shop item configurations with prices
     SHOP_ITEMS = {
         "poke": {
-            "price": 100,
+            "price": 200,
             "display_name": "Poké Ball",
             "description": "Basic pokeball with standard catch rate"
         },
         "great": {
-            "price": 1000,
+            "price": 600,
             "display_name": "Great Ball", 
             "description": "Enhanced pokeball with 1.5x catch rate"
         },
         "ultra": {
-            "price": 10000,
+            "price": 1200,
             "display_name": "Ultra Ball",
             "description": "Advanced pokeball with 2x catch rate"
         },
