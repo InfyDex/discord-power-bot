@@ -131,6 +131,23 @@ class MongoManager:
             Number of Pokémon owned by the user
         """
         return self.caught_pokemon.count_documents({"owner_id": owner_id})
+    
+    def has_pokemon_by_name(self, owner_id: str, pokemon_name: str) -> bool:
+        """
+        Check if a player owns a specific Pokémon by name
+        
+        Args:
+            owner_id: Discord user ID of the owner
+            pokemon_name: Name of the Pokémon to check
+            
+        Returns:
+            True if the player owns at least one of this Pokémon, False otherwise
+        """
+        count = self.caught_pokemon.count_documents({
+            "owner_id": owner_id,
+            "name": pokemon_name
+        })
+        return count > 0
 
     def get_pokemon_grouped_by_owner(self) -> List[Dict[str, Any]]:
         """

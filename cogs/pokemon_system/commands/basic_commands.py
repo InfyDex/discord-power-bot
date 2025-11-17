@@ -108,10 +108,14 @@ class BasicPokemonCommands:
         player.add_encounter(pokemon)
         self.player_db.save_player(user_id)
         
+        # Check if player already owns this Pokemon
+        already_owned = self.mongo_db.has_pokemon_by_name(user_id, pokemon.name)
+        
         # Create and send embed
         embed = PokemonEmbedUtils.create_encounter_embed(
             pokemon=pokemon,
             user=unified_ctx.author,
+            already_owned=already_owned
         )
         
         await unified_ctx.send(embed=embed)
@@ -493,6 +497,72 @@ class BasicPokemonCommands:
         await unified_ctx.send_error(embed)
         return False
     
+    async def check_pokemon_logic(self, unified_ctx: UnifiedContext, pokemon_name: str) -> bool:
+        """
+        Shared logic for checking if player owns a specific Pokémon
+        Returns True if successful, False if failed
+        """
+        user_id = str(unified_ctx.author.id)
+        
+        # Capitalize pokemon name properly
+        pokemon_name_formatted = pokemon_name.strip().title()
+        
+        # Check if the pokemon exists in the database
+        pokemon_data = self.pokemon_db.get_pokemon_by_name(pokemon_name_formatted)
+        if not pokemon_data:
+            embed = discord.Embed(
+                title="❌ Pokémon Not Found",
+                description=f"**{pokemon_name_formatted}** doesn't exist in the Pokémon database.\n\nPlease check the spelling and try again.",
+                color=discord.Color.red()
+            )
+            await unified_ctx.send_error(embed)
+            return False
+        
+        # Check if player owns this pokemon
+        has_pokemon = self.mongo_db.has_pokemon_by_name(user_id, pokemon_data.name)
+        
+        # Count how many of this pokemon the player has
+        owned_count = self.mongo_db.caught_pokemon.count_documents({
+            "owner_id": user_id,
+            "name": pokemon_data.name
+        })
+        
+        # Create embed based on ownership
+        if has_pokemon:
+            embed = discord.Embed(
+                title="✅ Pokémon Found in Collection!",
+                description=f"**{unified_ctx.author.mention}** owns **{pokemon_data.name}**!",
+                color=discord.Color.green()
+            )
+            embed.add_field(
+                name="Owned Count",
+                value=f"You have **{owned_count}** {pokemon_data.name}{'s' if owned_count > 1 else ''} in your collection",
+                inline=False
+            )
+        else:
+            embed = discord.Embed(
+                title="❌ Pokémon Not in Collection",
+                description=f"**{unified_ctx.author.mention}** doesn't own **{pokemon_data.name}** yet.",
+                color=discord.Color.red()
+            )
+            embed.add_field(
+                name="How to Get",
+                value=f"Use `!encounter` or `!wild` to find and catch {pokemon_data.name}!",
+                inline=False
+            )
+        
+        # Add Pokemon info
+        type_text = PokemonTypeUtils.format_types(pokemon_data.types)
+        embed.add_field(name="Type", value=type_text, inline=True)
+        embed.add_field(name="Rarity", value=pokemon_data.rarity, inline=True)
+        embed.add_field(name="Pokedex #", value=f"#{pokemon_data.id}", inline=True)
+        
+        embed.set_thumbnail(url=pokemon_data.sprite_url)
+        embed.set_footer(text=f"Check requested by {unified_ctx.author.display_name}")
+        
+        await unified_ctx.send(embed=embed)
+        return True
+    
     # ========== LEGACY PREFIX COMMANDS ==========
     
     async def encounter_pokemon(self, ctx) -> bool:
@@ -519,3 +589,8 @@ class BasicPokemonCommands:
         """Claim daily PokéCoin bonus (legacy prefix command)"""
         unified_ctx = create_unified_context(ctx)
         return await self.daily_claim_logic(unified_ctx)
+    
+    async def check_pokemon(self, ctx, *, pokemon_name: str) -> bool:
+        """Check if you own a specific Pokémon (legacy prefix command)"""
+        unified_ctx = create_unified_context(ctx)
+        return await self.check_pokemon_logic(unified_ctx, pokemon_name)

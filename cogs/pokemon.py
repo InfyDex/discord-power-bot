@@ -70,6 +70,11 @@ class Pokemon(commands.Cog):
         """Claim your daily PokéCoin bonus (100 coins every 24 hours)"""
         await self.basic_commands.daily_claim(ctx)
     
+    @commands.command(name='check_pokemon', aliases=['cp', 'checkpoke'])
+    async def check_pokemon(self, ctx, *, pokemon_name: str):
+        """Check if you own a specific Pokémon by name"""
+        await self.basic_commands.check_pokemon(ctx, pokemon_name=pokemon_name)
+    
     # Slash Commands
     @app_commands.command(name="encounter", description="Encounter a wild Pokemon (5-minute cooldown)")
     async def slash_encounter_pokemon(self, interaction: discord.Interaction):
@@ -110,6 +115,14 @@ class Pokemon(commands.Cog):
         from .pokemon_system.utils.interaction_utils import create_unified_context
         unified_ctx = create_unified_context(interaction)
         await self.basic_commands.daily_claim_logic(unified_ctx)
+    
+    @app_commands.command(name="check_pokemon", description="Check if you own a specific Pokemon by name")
+    @app_commands.describe(pokemon_name="Name of the Pokemon to check (e.g., 'Pikachu')")
+    async def slash_check_pokemon(self, interaction: discord.Interaction, pokemon_name: str):
+        """Check if you own a specific Pokémon (slash command)"""
+        from .pokemon_system.utils.interaction_utils import create_unified_context
+        unified_ctx = create_unified_context(interaction)
+        await self.basic_commands.check_pokemon_logic(unified_ctx, pokemon_name)
     
     # ===== SHOP COMMANDS =====
     

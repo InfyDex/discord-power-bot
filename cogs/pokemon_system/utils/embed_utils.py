@@ -58,11 +58,13 @@ class PokemonEmbedUtils:
         return embed
     
     @staticmethod
-    def create_encounter_embed(pokemon: PokemonData, user: discord.Member) -> discord.Embed:
+    def create_encounter_embed(pokemon: PokemonData, user: discord.Member, already_owned: bool = False) -> discord.Embed:
         """Create embed for personal Pokemon encounter"""
+        ownership_text = "\n\n✅ **You already have this Pokémon in your collection!**" if already_owned else "\n\n❌ **New Pokémon! You don't have this one yet.**"
+        
         embed = discord.Embed(
             title=f"🌿 Wild {pokemon.name} Appeared!",
-            description=f"**{user.mention}** encountered a wild **{pokemon.name}**!\n\n*{pokemon.description}*\n\n**This is your personal encounter - only you can catch it!**",
+            description=f"**{user.mention}** encountered a wild **{pokemon.name}**!\n\n*{pokemon.description}*\n\n**This is your personal encounter - only you can catch it!**{ownership_text}",
             color=PokemonTypeUtils.get_type_color(pokemon.types)
         )
         
