@@ -24,14 +24,15 @@ class Music(commands.Cog):
             'audioformat': 'mp3',
             'outtmpl': 'downloads/%(id)s.%(ext)s',
             'restrictfilenames': True,
-            'noplaylist': True,
+            'noplaylist': False,  # Changed to False to allow playlists
             'nocheckcertificate': True,
-            'ignoreerrors': False,
+            'ignoreerrors': True,  # Changed to True to skip unavailable videos in playlists
             'logtostderr': False,
             'quiet': False,  # Changed to False for debugging
             'no_warnings': False,  # Changed to False for debugging
             'default_search': 'ytsearch',
-            'source_address': '0.0.0.0'
+            'source_address': '0.0.0.0',
+            'playlistend': 50  # Limit playlist to first 50 songs
         }
         
         self.ffmpeg_options = {
@@ -77,6 +78,44 @@ class Music(commands.Cog):
             logger.error(f"Error searching YouTube: {e}", exc_info=True)
             return None
 
+    async def get_playlist_info(self, url: str):
+        """Extract playlist information from URL"""
+        try:
+            logger.info(f"Extracting playlist info from: {url}")
+            loop = asyncio.get_event_loop()
+            data = await loop.run_in_executor(
+                None,
+                lambda: self.ytdl.extract_info(url, download=False)
+            )
+            
+            if 'entries' not in data:
+                # Not a playlist, return single video
+                return [{
+                    'title': data['title'],
+                    'url': data['url'],
+                    'duration': data['duration'],
+                    'thumbnail': data['thumbnail'],
+                    'webpage_url': data['webpage_url']
+                }]
+            
+            # Extract all videos from playlist
+            songs = []
+            for entry in data['entries']:
+                if entry:  # Skip None entries (unavailable videos)
+                    songs.append({
+                        'title': entry['title'],
+                        'url': entry['url'],
+                        'duration': entry['duration'],
+                        'thumbnail': entry.get('thumbnail', data.get('thumbnail')),
+                        'webpage_url': entry['webpage_url']
+                    })
+            
+            logger.info(f"Extracted {len(songs)} songs from playlist: {data.get('title', 'Unknown')}")
+            return songs
+        except Exception as e:
+            logger.error(f"Error extracting playlist: {e}", exc_info=True)
+            return None
+
     async def play_next(self, guild):
         """Play next song in queue"""
         guild_id = guild.id
@@ -109,7 +148,7 @@ class Music(commands.Cog):
             logger.info(f"Queue empty for guild {guild_id}")
 
     @app_commands.command(name="play", description="Play a song from YouTube")
-    @app_commands.describe(query="Song name or YouTube URL")
+    @app_commands.describe(query="Song name or YouTube URL (supports playlists)")
     async def play(self, interaction: discord.Interaction, query: str):
         """Play a song"""
         logger.info(f"Play command received from {interaction.user} with query: {query}")
@@ -139,36 +178,86 @@ class Music(commands.Cog):
             logger.info(f"Moving to voice channel: {voice_channel.name}")
             await voice_client.move_to(voice_channel)
         
-        # Search for song
-        await interaction.followup.send(f"🔍 Searching for: **{query}**...")
-        song = await self.search_youtube(query)
-        
-        if not song:
-            logger.error(f"Could not find song for query: {query}")
-            await interaction.edit_original_response(content="❌ Could not find the song!")
-            return
+        # Check if it's a playlist or single video
+        is_url = query.startswith('http://') or query.startswith('https://')
+        is_playlist = 'playlist' in query or 'list=' in query
         
         guild_id = interaction.guild.id
         queue = self.get_queue(guild_id)
         
-        # Add to queue
-        queue.append(song)
-        logger.info(f"Added to queue: {song['title']}, queue length: {len(queue)}")
-        
-        # Create embed
-        embed = discord.Embed(
-            title="🎵 Added to Queue",
-            description=f"[{song['title']}]({song['webpage_url']})",
-            color=discord.Color.green()
-        )
-        embed.set_thumbnail(url=song['thumbnail'])
-        embed.add_field(
-            name="Duration", 
-            value=f"{song['duration'] // 60}:{song['duration'] % 60:02d}"
-        )
-        embed.add_field(name="Position in Queue", value=len(queue))
-        
-        await interaction.edit_original_response(content=None, embed=embed)
+        if is_url and is_playlist:
+            # Handle playlist
+            await interaction.followup.send(f"🔍 Loading playlist from URL...")
+            songs = await self.get_playlist_info(query)
+            
+            if not songs:
+                await interaction.edit_original_response(content="❌ Could not load playlist!")
+                return
+            
+            # Add all songs to queue
+            for song in songs:
+                queue.append(song)
+            
+            logger.info(f"Added {len(songs)} songs from playlist to queue")
+            
+            # Create embed
+            embed = discord.Embed(
+                title="📃 Playlist Added to Queue",
+                description=f"Added **{len(songs)}** songs to the queue!",
+                color=discord.Color.green()
+            )
+            
+            # Show first 5 songs
+            if len(songs) > 0:
+                song_list = "\n".join([
+                    f"{i+1}. {song['title'][:50]}{'...' if len(song['title']) > 50 else ''}"
+                    for i, song in enumerate(songs[:5])
+                ])
+                embed.add_field(name="First Songs", value=song_list, inline=False)
+                
+                if len(songs) > 5:
+                    embed.set_footer(text=f"... and {len(songs) - 5} more songs")
+            
+            await interaction.edit_original_response(content=None, embed=embed)
+            
+        else:
+            # Handle single song (URL or search)
+            await interaction.followup.send(f"🔍 Searching for: **{query}**...")
+            
+            if is_url:
+                # Direct URL
+                songs = await self.get_playlist_info(query)
+                if not songs or len(songs) == 0:
+                    await interaction.edit_original_response(content="❌ Could not find the song!")
+                    return
+                song = songs[0]
+            else:
+                # Search query
+                song = await self.search_youtube(query)
+            
+            if not song:
+                logger.error(f"Could not find song for query: {query}")
+                await interaction.edit_original_response(content="❌ Could not find the song!")
+                return
+            
+            # Add to queue
+            queue.append(song)
+            logger.info(f"Added to queue: {song['title']}, queue length: {len(queue)}")
+            
+            # Create embed
+            embed = discord.Embed(
+                title="🎵 Added to Queue",
+                description=f"[{song['title']}]({song['webpage_url']})",
+                color=discord.Color.green()
+            )
+            embed.set_thumbnail(url=song['thumbnail'])
+            embed.add_field(
+                name="Duration", 
+                value=f"{song['duration'] // 60}:{song['duration'] % 60:02d}"
+            )
+            embed.add_field(name="Position in Queue", value=len(queue))
+            
+            await interaction.edit_original_response(content=None, embed=embed)
         
         # If nothing is playing, start playing
         is_playing = voice_client.is_playing()
@@ -177,7 +266,7 @@ class Music(commands.Cog):
             logger.info("Starting playback...")
             await self.play_next(interaction.guild)
         else:
-            logger.info("Already playing, song added to queue")
+            logger.info("Already playing, song(s) added to queue")
 
     @commands.command(name="play", aliases=["p"])
     async def play_prefix(self, ctx, *, query: str):
@@ -208,36 +297,86 @@ class Music(commands.Cog):
             logger.info(f"Moving to voice channel: {voice_channel.name}")
             await voice_client.move_to(voice_channel)
         
-        # Search for song
-        search_msg = await ctx.send(f"🔍 Searching for: **{query}**...")
-        song = await self.search_youtube(query)
-        
-        if not song:
-            logger.error(f"Could not find song for query: {query}")
-            await search_msg.edit(content="❌ Could not find the song!")
-            return
+        # Check if it's a playlist or single video
+        is_url = query.startswith('http://') or query.startswith('https://')
+        is_playlist = 'playlist' in query or 'list=' in query
         
         guild_id = ctx.guild.id
         queue = self.get_queue(guild_id)
         
-        # Add to queue
-        queue.append(song)
-        logger.info(f"Added to queue: {song['title']}, queue length: {len(queue)}")
-        
-        # Create embed
-        embed = discord.Embed(
-            title="🎵 Added to Queue",
-            description=f"[{song['title']}]({song['webpage_url']})",
-            color=discord.Color.green()
-        )
-        embed.set_thumbnail(url=song['thumbnail'])
-        embed.add_field(
-            name="Duration", 
-            value=f"{song['duration'] // 60}:{song['duration'] % 60:02d}"
-        )
-        embed.add_field(name="Position in Queue", value=len(queue))
-        
-        await search_msg.edit(content=None, embed=embed)
+        if is_url and is_playlist:
+            # Handle playlist
+            search_msg = await ctx.send(f"🔍 Loading playlist from URL...")
+            songs = await self.get_playlist_info(query)
+            
+            if not songs:
+                await search_msg.edit(content="❌ Could not load playlist!")
+                return
+            
+            # Add all songs to queue
+            for song in songs:
+                queue.append(song)
+            
+            logger.info(f"Added {len(songs)} songs from playlist to queue")
+            
+            # Create embed
+            embed = discord.Embed(
+                title="📃 Playlist Added to Queue",
+                description=f"Added **{len(songs)}** songs to the queue!",
+                color=discord.Color.green()
+            )
+            
+            # Show first 5 songs
+            if len(songs) > 0:
+                song_list = "\n".join([
+                    f"{i+1}. {song['title'][:50]}{'...' if len(song['title']) > 50 else ''}"
+                    for i, song in enumerate(songs[:5])
+                ])
+                embed.add_field(name="First Songs", value=song_list, inline=False)
+                
+                if len(songs) > 5:
+                    embed.set_footer(text=f"... and {len(songs) - 5} more songs")
+            
+            await search_msg.edit(content=None, embed=embed)
+            
+        else:
+            # Handle single song (URL or search)
+            search_msg = await ctx.send(f"🔍 Searching for: **{query}**...")
+            
+            if is_url:
+                # Direct URL
+                songs = await self.get_playlist_info(query)
+                if not songs or len(songs) == 0:
+                    await search_msg.edit(content="❌ Could not find the song!")
+                    return
+                song = songs[0]
+            else:
+                # Search query
+                song = await self.search_youtube(query)
+            
+            if not song:
+                logger.error(f"Could not find song for query: {query}")
+                await search_msg.edit(content="❌ Could not find the song!")
+                return
+            
+            # Add to queue
+            queue.append(song)
+            logger.info(f"Added to queue: {song['title']}, queue length: {len(queue)}")
+            
+            # Create embed
+            embed = discord.Embed(
+                title="🎵 Added to Queue",
+                description=f"[{song['title']}]({song['webpage_url']})",
+                color=discord.Color.green()
+            )
+            embed.set_thumbnail(url=song['thumbnail'])
+            embed.add_field(
+                name="Duration", 
+                value=f"{song['duration'] // 60}:{song['duration'] % 60:02d}"
+            )
+            embed.add_field(name="Position in Queue", value=len(queue))
+            
+            await search_msg.edit(content=None, embed=embed)
         
         # If nothing is playing, start playing
         is_playing = voice_client.is_playing()
@@ -246,7 +385,7 @@ class Music(commands.Cog):
             logger.info("Starting playback...")
             await self.play_next(ctx.guild)
         else:
-            logger.info("Already playing, song added to queue")
+            logger.info("Already playing, song(s) added to queue")
 
     @app_commands.command(name="skip", description="Skip the current song")
     async def skip(self, interaction: discord.Interaction):
@@ -271,6 +410,35 @@ class Music(commands.Cog):
             await ctx.send("⏭️ Skipped!")
         else:
             await ctx.send("❌ Nothing is playing!")
+
+    @commands.command(name="clear", aliases=["c"])
+    async def clear_queue(self, ctx):
+        """Clear the entire queue"""
+        guild_id = ctx.guild.id
+        queue = self.get_queue(guild_id)
+        
+        if len(queue) == 0:
+            await ctx.send("❌ Queue is already empty!")
+            return
+        
+        cleared_count = len(queue)
+        queue.clear()
+        logger.info(f"Cleared {cleared_count} songs from queue in guild {guild_id}")
+        await ctx.send(f"🗑️ Cleared **{cleared_count}** song(s) from the queue!")
+
+    @commands.command(name="remove", aliases=["rm"])
+    async def remove_from_queue(self, ctx, position: int):
+        """Remove a specific song from queue by position"""
+        guild_id = ctx.guild.id
+        queue = self.get_queue(guild_id)
+        
+        if position < 1 or position > len(queue):
+            await ctx.send(f"❌ Invalid position! Queue has {len(queue)} song(s).")
+            return
+        
+        removed_song = queue.pop(position - 1)
+        logger.info(f"Removed song from position {position}: {removed_song['title']}")
+        await ctx.send(f"🗑️ Removed: **{removed_song['title']}**")
 
     @commands.command(name="testmusic")
     async def test_music(self, ctx):
