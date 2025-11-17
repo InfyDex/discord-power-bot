@@ -397,6 +397,7 @@ class BasicPokemonCommands:
         Returns True if successful, False if failed
         """
         status = self.wild_spawn.get_spawn_status()
+        user_id = str(unified_ctx.author.id)
         
         embed = discord.Embed(
             title="🌿 Wild Pokemon Status",
@@ -406,7 +407,11 @@ class BasicPokemonCommands:
         if status["has_wild_pokemon"]:
             wild_pokemon = self.wild_spawn.get_current_wild_pokemon()
             if wild_pokemon:
-                embed.description = f"**A wild {wild_pokemon.name} is currently available!**"
+                # Check if player already owns this Pokemon
+                already_owned = self.mongo_db.has_pokemon_by_name(user_id, wild_pokemon.name)
+                ownership_status = "✅ You already have this Pokémon!" if already_owned else "❌ New Pokémon! You don't have this one yet."
+                
+                embed.description = f"**A wild {wild_pokemon.name} is currently available!**\n\n{ownership_status}"
                 embed.add_field(name="Location", value=f"#{status['spawn_channel']} channel", inline=True)
                 embed.add_field(name="Type", value=wild_pokemon.types[0] if wild_pokemon.types else "Unknown", inline=True)
                 embed.add_field(name="Rarity", value=wild_pokemon.rarity, inline=True)
