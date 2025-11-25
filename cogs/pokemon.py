@@ -75,6 +75,11 @@ class Pokemon(commands.Cog):
         """Check if you own a specific Pokémon by name"""
         await self.basic_commands.check_pokemon(ctx, pokemon_name=pokemon_name)
     
+    @commands.command(name='trade_check', aliases=['tcheck', 'tradecheck'])
+    async def trade_check(self, ctx, target_user: discord.Member):
+        """Check what Pokémon another user has that you don't"""
+        await self.basic_commands.trade_check(ctx, target_user)
+    
     # Slash Commands
     @app_commands.command(name="encounter", description="Encounter a wild Pokemon (5-minute cooldown)")
     async def slash_encounter_pokemon(self, interaction: discord.Interaction):
@@ -123,6 +128,14 @@ class Pokemon(commands.Cog):
         from .pokemon_system.utils.interaction_utils import create_unified_context
         unified_ctx = create_unified_context(interaction)
         await self.basic_commands.check_pokemon_logic(unified_ctx, pokemon_name)
+    
+    @app_commands.command(name="trade_check", description="Check what Pokemon another user has that you don't")
+    @app_commands.describe(target_user="User to check trade opportunities with")
+    async def slash_trade_check(self, interaction: discord.Interaction, target_user: discord.Member):
+        """Check trade opportunities with another user (slash command)"""
+        from .pokemon_system.utils.interaction_utils import create_unified_context
+        unified_ctx = create_unified_context(interaction)
+        await self.basic_commands.trade_check_logic(unified_ctx, target_user)
     
     # ===== SHOP COMMANDS =====
     

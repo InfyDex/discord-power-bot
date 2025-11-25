@@ -568,6 +568,118 @@ class BasicPokemonCommands:
         await unified_ctx.send(embed=embed)
         return True
     
+    async def trade_check_logic(self, unified_ctx: UnifiedContext, target_user: discord.Member) -> bool:
+        """
+        Shared logic for trade check command
+        Shows Pokémon that target_user has but the requester doesn't have
+        Returns True if successful, False if failed
+        """
+        requester_id = str(unified_ctx.author.id)
+        target_id = str(target_user.id)
+        
+        # Check if trying to check themselves
+        if requester_id == target_id:
+            embed = discord.Embed(
+                title="❌ Invalid User",
+                description="You can't trade check yourself! Please mention another user.",
+                color=discord.Color.red()
+            )
+            await unified_ctx.send_error(embed)
+            return False
+        
+        # Get all Pokémon owned by the requester
+        requester_pokemon = self.mongo_db.get_pokemon_by_owner(requester_id)
+        requester_pokemon_names = set(p.get("name") for p in requester_pokemon if p.get("name"))
+        
+        # Get all Pokémon owned by the target user
+        target_pokemon = self.mongo_db.get_pokemon_by_owner(target_id)
+        
+        if not target_pokemon:
+            embed = discord.Embed(
+                title="❌ No Pokémon Found",
+                description=f"**{target_user.display_name}** doesn't have any Pokémon yet!",
+                color=discord.Color.red()
+            )
+            await unified_ctx.send_error(embed)
+            return False
+        
+        # Find Pokémon that target has but requester doesn't, with counts
+        trade_candidates = {}
+        for pokemon in target_pokemon:
+            pokemon_name = pokemon.get("name")
+            if pokemon_name and pokemon_name not in requester_pokemon_names:
+                if pokemon_name not in trade_candidates:
+                    trade_candidates[pokemon_name] = {
+                        "count": 0,
+                        "types": pokemon.get("types", []),
+                        "rarity": pokemon.get("rarity", "Unknown"),
+                        "sprite_url": pokemon.get("sprite_url", "")
+                    }
+                trade_candidates[pokemon_name]["count"] += 1
+        
+        if not trade_candidates:
+            embed = discord.Embed(
+                title="✅ Complete Match!",
+                description=f"You already have all the Pokémon that **{target_user.display_name}** has!\n\nNo trade opportunities available.",
+                color=discord.Color.green()
+            )
+            await unified_ctx.send(embed=embed)
+            return True
+        
+        # Sort by count (highest first)
+        sorted_candidates = sorted(trade_candidates.items(), key=lambda x: x[1]["count"], reverse=True)
+        
+        # Create embed
+        embed = discord.Embed(
+            title=f"🔄 Trade Check: {target_user.display_name}",
+            description=f"**{unified_ctx.author.mention}** is checking trade opportunities with **{target_user.mention}**\n\n"
+                       f"Showing Pokémon that {target_user.display_name} has but you don't:",
+            color=discord.Color.blue()
+        )
+        
+        # Add summary
+        embed.add_field(
+            name="📊 Summary",
+            value=f"**Total Trade Opportunities:** {len(trade_candidates)} unique Pokémon\n"
+                  f"**Total Available:** {sum(p['count'] for p in trade_candidates.values())} Pokémon",
+            inline=False
+        )
+        
+        # Add top Pokémon (limit to 15 to avoid embed limits)
+        pokemon_list = []
+        for i, (name, data) in enumerate(sorted_candidates[:15], 1):
+            type_text = PokemonTypeUtils.format_types(data["types"]) if data["types"] else "Unknown"
+            rarity_emoji = PokemonTypeUtils.get_rarity_emoji(data["rarity"])
+            
+            pokemon_list.append(
+                f"**{i}.** {name} {rarity_emoji}\n"
+                f"└ {type_text} • **×{data['count']}** available"
+            )
+        
+        if pokemon_list:
+            embed.add_field(
+                name="🎯 Available Pokémon (Sorted by Count)",
+                value="\n".join(pokemon_list),
+                inline=False
+            )
+        
+        # Add note if there are more
+        if len(sorted_candidates) > 15:
+            embed.add_field(
+                name="📝 Note",
+                value=f"*Showing top 15 of {len(sorted_candidates)} total Pokémon...*",
+                inline=False
+            )
+        
+        # Set thumbnail to the first Pokémon's sprite
+        if sorted_candidates and sorted_candidates[0][1]["sprite_url"]:
+            embed.set_thumbnail(url=sorted_candidates[0][1]["sprite_url"])
+        
+        embed.set_footer(text=f"Trade check requested by {unified_ctx.author.display_name}")
+        
+        await unified_ctx.send(embed=embed)
+        return True
+    
     # ========== LEGACY PREFIX COMMANDS ==========
     
     async def encounter_pokemon(self, ctx) -> bool:
@@ -599,3 +711,8 @@ class BasicPokemonCommands:
         """Check if you own a specific Pokémon (legacy prefix command)"""
         unified_ctx = create_unified_context(ctx)
         return await self.check_pokemon_logic(unified_ctx, pokemon_name)
+    
+    async def trade_check(self, ctx, target_user: discord.Member) -> bool:
+        """Check trade opportunities with another user (legacy prefix command)"""
+        unified_ctx = create_unified_context(ctx)
+        return await self.trade_check_logic(unified_ctx, target_user)
