@@ -453,6 +453,7 @@ class PlayerData:
         
         daily_bonus = 100
         self.add_pokecoins(daily_bonus)
+        self.inventory.add_pokeball("poke", 1)  # Add 1 normal pokeball
         self.last_daily_claim = datetime.now().isoformat()
         return True, daily_bonus
     

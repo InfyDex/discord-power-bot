@@ -464,13 +464,14 @@ class BasicPokemonCommands:
             embed = discord.Embed(
                 title="🎁 Daily Bonus Claimed!",
                 description=f"**Congratulations {unified_ctx.author.mention}!**\n\n"
-                           f"You've claimed your daily bonus of **{coins_received:,} PokéCoins**!",
+                           f"You've claimed your daily bonus!",
                 color=discord.Color.gold()
             )
             
             embed.add_field(
-                name="💰 Balance Update",
-                value=f"**Received:** +{coins_received:,} PokéCoins\n"
+                name="💰 Rewards Received",
+                value=f"**+{coins_received:,} PokéCoins**\n"
+                      f"**+1 Poké Ball**\n\n"
                       f"**New Balance:** {player.pokecoins:,} PokéCoins",
                 inline=False
             )
