@@ -490,6 +490,21 @@ class Music(commands.Cog):
         await ctx.send(embed=embed)
         logger.info(f"Test results: {test_results}")
 
+    @app_commands.command(name="clear", description="Clear the entire queue")
+    async def clear(self, interaction: discord.Interaction):
+        """Clear the entire queue"""
+        guild_id = interaction.guild.id
+        queue = self.get_queue(guild_id)
+        
+        if len(queue) == 0:
+            await interaction.response.send_message("❌ Queue is already empty!")
+            return
+        
+        cleared_count = len(queue)
+        queue.clear()
+        logger.info(f"Cleared {cleared_count} songs from queue in guild {guild_id}")
+        await interaction.response.send_message(f"🗑️ Cleared **{cleared_count}** song(s) from the queue!")
+
     @app_commands.command(name="stop", description="Stop music and clear queue")
     async def stop(self, interaction: discord.Interaction):
         """Stop music and disconnect"""
