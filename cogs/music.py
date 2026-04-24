@@ -87,12 +87,21 @@ class Music(commands.Cog):
             loop = asyncio.get_event_loop()
             data = await loop.run_in_executor(
                 None, 
-                lambda: self.ytdl.extract_info(f"ytsearch:{query}", download=False)
+                lambda: self.ytdl.extract_info(f"ytsearch5:{query}", download=False)
             )
-            
+
+            if not data:
+                logger.error("yt-dlp returned no data")
+                return None
+
             if 'entries' in data:
-                data = data['entries'][0]
-            
+                # Find first non-None entry (some entries are None for unavailable videos)
+                entry = next((e for e in data['entries'] if e), None)
+                if not entry:
+                    logger.error(f"No valid entries found for query: {query}")
+                    return None
+                data = entry
+
             result = {
                 'id': data['id'],
                 'title': data['title'],
@@ -116,7 +125,11 @@ class Music(commands.Cog):
                 None,
                 lambda: self.ytdl.extract_info(url, download=False)
             )
-            
+
+            if not data:
+                logger.error("yt-dlp returned no data for URL")
+                return None
+
             if 'entries' not in data:
                 # Not a playlist, return single video
                 return [{
