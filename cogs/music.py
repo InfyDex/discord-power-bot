@@ -38,7 +38,8 @@ class Music(commands.Cog):
 
         # Separate yt-dlp options for downloading audio files
         self.ytdl_download_options = {
-            'format': 'bestaudio/best',
+            # android_music client serves audio-only m4a streams and isn't blocked on server IPs
+            'format': 'bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio/best',
             'outtmpl': 'downloads/%(id)s.%(ext)s',
             'restrictfilenames': True,
             'nocheckcertificate': True,
@@ -48,8 +49,7 @@ class Music(commands.Cog):
             'no_warnings': True,
             'default_search': 'ytsearch',
             'source_address': '0.0.0.0',
-            # Use iOS player client to bypass server-IP 403 blocks from YouTube
-            'extractor_args': {'youtube': {'player_client': ['ios', 'web']}},
+            'extractor_args': {'youtube': {'player_client': ['android_music', 'ios', 'web']}},
             'postprocessors': [{
                 'key': 'FFmpegExtractAudio',
                 'preferredcodec': 'mp3',
