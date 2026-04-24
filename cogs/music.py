@@ -4,6 +4,7 @@ from discord import app_commands
 import yt_dlp
 import asyncio
 from typing import Optional
+from collections import OrderedDict
 import os
 import logging
 
@@ -17,31 +18,55 @@ class Music(commands.Cog):
         self.now_playing = {}  # Current song per guild
         logger.info("Music cog initialized")
         
-        # yt-dlp options
+        # yt-dlp options for metadata/search (no download)
         self.ytdl_options = {
             'format': 'bestaudio/best',
             'extractaudio': True,
             'audioformat': 'mp3',
             'outtmpl': 'downloads/%(id)s.%(ext)s',
             'restrictfilenames': True,
-            'noplaylist': False,  # Changed to False to allow playlists
+            'noplaylist': False,
             'nocheckcertificate': True,
-            'ignoreerrors': True,  # Changed to True to skip unavailable videos in playlists
+            'ignoreerrors': True,
             'logtostderr': False,
-            'quiet': False,  # Changed to False for debugging
-            'no_warnings': False,  # Changed to False for debugging
+            'quiet': False,
+            'no_warnings': False,
             'default_search': 'ytsearch',
             'source_address': '0.0.0.0',
-            'playlistend': 50  # Limit playlist to first 50 songs
+            'playlistend': 50
+        }
+
+        # Separate yt-dlp options for downloading audio files
+        self.ytdl_download_options = {
+            'format': 'bestaudio/best',
+            'outtmpl': 'downloads/%(id)s.%(ext)s',
+            'restrictfilenames': True,
+            'nocheckcertificate': True,
+            'ignoreerrors': False,
+            'logtostderr': False,
+            'quiet': True,
+            'no_warnings': True,
+            'default_search': 'ytsearch',
+            'source_address': '0.0.0.0',
+            'postprocessors': [{
+                'key': 'FFmpegExtractAudio',
+                'preferredcodec': 'mp3',
+                'preferredquality': '192',
+            }],
         }
         
         self.ffmpeg_options = {
-            'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
             'options': '-vn'
         }
         
         self.ytdl = yt_dlp.YoutubeDL(self.ytdl_options)
-        
+        self.ytdl_downloader = yt_dlp.YoutubeDL(self.ytdl_download_options)
+
+        # LRU audio cache: OrderedDict keyed by video ID → local file path
+        # Keeps the last AUDIO_CACHE_LIMIT songs on disk; oldest evicted when full
+        self.AUDIO_CACHE_LIMIT = 100
+        self.audio_cache: OrderedDict[str, str] = OrderedDict()
+
         # Create downloads folder
         os.makedirs('downloads', exist_ok=True)
         logger.info("Music cog setup completed - downloads folder ready")
@@ -66,6 +91,7 @@ class Music(commands.Cog):
                 data = data['entries'][0]
             
             result = {
+                'id': data['id'],
                 'title': data['title'],
                 'url': data['url'],
                 'duration': data['duration'],
@@ -91,6 +117,7 @@ class Music(commands.Cog):
             if 'entries' not in data:
                 # Not a playlist, return single video
                 return [{
+                    'id': data['id'],
                     'title': data['title'],
                     'url': data['url'],
                     'duration': data['duration'],
@@ -103,6 +130,7 @@ class Music(commands.Cog):
             for entry in data['entries']:
                 if entry:  # Skip None entries (unavailable videos)
                     songs.append({
+                        'id': entry['id'],
                         'title': entry['title'],
                         'url': entry['url'],
                         'duration': entry['duration'],
@@ -116,8 +144,68 @@ class Music(commands.Cog):
             logger.error(f"Error extracting playlist: {e}", exc_info=True)
             return None
 
+    async def get_audio_file(self, song: dict) -> str | None:
+        """Return a local audio file path for the song, using cache when available.
+
+        Cache behaviour:
+        - Hit  → move to end (most recently used), return immediately, no download
+        - Miss → download, add to cache; if cache exceeds AUDIO_CACHE_LIMIT evict
+                 the oldest entry and delete its file from disk
+        """
+        video_id = song.get('id')
+        if not video_id:
+            # Derive ID from webpage_url as a fallback key
+            video_id = song['webpage_url'].split('v=')[-1].split('&')[0]
+
+        # Cache hit
+        if video_id in self.audio_cache:
+            file_path = self.audio_cache[video_id]
+            if os.path.exists(file_path):
+                self.audio_cache.move_to_end(video_id)
+                logger.info(f"Cache hit for '{song['title']}' — {file_path}")
+                return file_path
+            # File was deleted externally; remove stale entry
+            del self.audio_cache[video_id]
+
+        # Cache miss — download
+        logger.info(f"Cache miss for '{song['title']}' — downloading...")
+        try:
+            loop = asyncio.get_event_loop()
+            data = await loop.run_in_executor(
+                None,
+                lambda: self.ytdl_downloader.extract_info(song['webpage_url'], download=True)
+            )
+            if data and 'entries' in data:
+                data = data['entries'][0]
+            if not data:
+                return None
+
+            base = self.ytdl_downloader.prepare_filename(data)
+            mp3_path = os.path.splitext(base)[0] + '.mp3'
+            file_path = mp3_path if os.path.exists(mp3_path) else base
+            if not os.path.exists(file_path):
+                logger.error(f"Downloaded file not found at {mp3_path} or {base}")
+                return None
+        except Exception as e:
+            logger.error(f"Failed to download '{song['title']}': {e}", exc_info=True)
+            return None
+
+        # Add to cache and evict oldest if over limit
+        self.audio_cache[video_id] = file_path
+        if len(self.audio_cache) > self.AUDIO_CACHE_LIMIT:
+            oldest_id, oldest_path = self.audio_cache.popitem(last=False)
+            try:
+                if os.path.exists(oldest_path):
+                    os.remove(oldest_path)
+                    logger.info(f"Cache evicted (limit {self.AUDIO_CACHE_LIMIT}): {oldest_path}")
+            except Exception as e:
+                logger.warning(f"Could not delete evicted file {oldest_path}: {e}")
+
+        logger.info(f"Downloaded and cached: {file_path} (cache size: {len(self.audio_cache)})")
+        return file_path
+
     async def play_next(self, guild):
-        """Play next song in queue"""
+        """Play next song in queue, using the audio cache"""
         guild_id = guild.id
         queue = self.get_queue(guild_id)
         
@@ -127,18 +215,27 @@ class Music(commands.Cog):
             song = queue.pop(0)
             self.now_playing[guild_id] = song
             
-            logger.info(f"Playing: {song['title']}")
-            
             voice_client = discord.utils.get(self.bot.voice_clients, guild=guild)
             if voice_client and voice_client.is_connected():
                 try:
-                    voice_client.play(
-                        discord.FFmpegPCMAudio(song['url'], **self.ffmpeg_options),
-                        after=lambda e: asyncio.run_coroutine_threadsafe(
+                    file_path = await self.get_audio_file(song)
+                    if not file_path:
+                        logger.error(f"Could not get audio for '{song['title']}', skipping")
+                        await self.play_next(guild)
+                        return
+
+                    def after_playback(error):
+                        if error:
+                            logger.error(f"Playback error: {error}")
+                        asyncio.run_coroutine_threadsafe(
                             self.play_next(guild), self.bot.loop
                         )
+
+                    voice_client.play(
+                        discord.FFmpegPCMAudio(file_path, **self.ffmpeg_options),
+                        after=after_playback
                     )
-                    logger.info(f"Successfully started playback of: {song['title']}")
+                    logger.info(f"Playing: '{song['title']}' from {file_path}")
                 except Exception as e:
                     logger.error(f"Error during playback: {e}", exc_info=True)
             else:
