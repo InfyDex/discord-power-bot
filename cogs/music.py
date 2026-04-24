@@ -33,7 +33,8 @@ class Music(commands.Cog):
             'no_warnings': False,
             'default_search': 'ytsearch',
             'source_address': '0.0.0.0',
-            'playlistend': 50
+            'playlistend': 50,
+            'extractor_args': {'youtube': {'player_client': ['ios', 'web']}},
         }
 
         # Separate yt-dlp options for downloading audio files
@@ -48,6 +49,8 @@ class Music(commands.Cog):
             'no_warnings': True,
             'default_search': 'ytsearch',
             'source_address': '0.0.0.0',
+            # Use iOS player client to bypass server-IP 403 blocks from YouTube
+            'extractor_args': {'youtube': {'player_client': ['ios', 'web']}},
             'postprocessors': [{
                 'key': 'FFmpegExtractAudio',
                 'preferredcodec': 'mp3',
