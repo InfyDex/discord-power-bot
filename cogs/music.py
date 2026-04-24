@@ -11,13 +11,26 @@ import logging
 # Setup logger
 logger = logging.getLogger('discord.music')
 
+COOKIES_FILE = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'cookies.txt')
+
+
 class Music(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.queue = {}  # Guild-specific queues
         self.now_playing = {}  # Current song per guild
         logger.info("Music cog initialized")
-        
+
+        cookies = COOKIES_FILE if os.path.exists(COOKIES_FILE) else None
+        if cookies:
+            logger.info(f"Using YouTube cookies from {cookies}")
+        else:
+            logger.warning(
+                f"No cookies.txt found at {COOKIES_FILE}. "
+                "YouTube downloads may fail with 403 on server IPs. "
+                "Export cookies from a logged-in browser and place them there."
+            )
+
         # yt-dlp options for metadata/search (no download)
         self.ytdl_options = {
             'format': 'bestaudio/best',
@@ -34,6 +47,7 @@ class Music(commands.Cog):
             'default_search': 'ytsearch',
             'source_address': '0.0.0.0',
             'playlistend': 50,
+            **(({'cookiefile': cookies}) if cookies else {}),
         }
 
         # Separate yt-dlp options for downloading audio files
@@ -48,17 +62,18 @@ class Music(commands.Cog):
             'no_warnings': True,
             'default_search': 'ytsearch',
             'source_address': '0.0.0.0',
+            **(({'cookiefile': cookies}) if cookies else {}),
             'postprocessors': [{
                 'key': 'FFmpegExtractAudio',
                 'preferredcodec': 'mp3',
                 'preferredquality': '192',
             }],
         }
-        
+
         self.ffmpeg_options = {
             'options': '-vn'
         }
-        
+
         self.ytdl = yt_dlp.YoutubeDL(self.ytdl_options)
         self.ytdl_downloader = yt_dlp.YoutubeDL(self.ytdl_download_options)
 
