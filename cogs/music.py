@@ -8,10 +8,32 @@ from collections import OrderedDict
 import base64
 import os
 import logging
+import shutil
+import sys
 import tempfile
 
 # Setup logger
 logger = logging.getLogger('discord.music')
+
+def _find_ytdlp() -> str:
+    """Return the path to the yt-dlp executable.
+
+    Checks system PATH first, then falls back to the virtualenv bin directory
+    (same folder as the running Python interpreter).
+    """
+    found = shutil.which('yt-dlp')
+    if found:
+        return found
+    venv_bin = os.path.join(os.path.dirname(sys.executable), 'yt-dlp')
+    if os.path.exists(venv_bin):
+        return venv_bin
+    raise FileNotFoundError(
+        "yt-dlp not found. Install it with: pip install yt-dlp"
+    )
+
+
+YTDLP_BIN = _find_ytdlp()
+
 
 def _resolve_cookies() -> str | None:
     """Return a path to a usable cookies file, or None.
@@ -194,7 +216,7 @@ class Music(commands.Cog):
         mp3_path = os.path.join('downloads', f"{video_id}.mp3")
 
         cmd = [
-            'yt-dlp',
+            YTDLP_BIN,
             '--no-playlist',
             '-f', 'bestaudio/best',
             '-x', '--audio-format', 'mp3', '--audio-quality', '192K',
