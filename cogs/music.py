@@ -34,7 +34,6 @@ class Music(commands.Cog):
             'default_search': 'ytsearch',
             'source_address': '0.0.0.0',
             'playlistend': 50,
-            'extractor_args': {'youtube': {'player_client': ['ios', 'web']}},
         }
 
         # Separate yt-dlp options for downloading audio files
