@@ -79,7 +79,6 @@ class Music(commands.Cog):
             'default_search': 'ytsearch',
             'source_address': '0.0.0.0',
             'playlistend': 50,
-            **(({'cookiefile': cookies}) if cookies else {}),
         }
 
         # Separate yt-dlp options for downloading audio files
