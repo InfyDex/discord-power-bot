@@ -5,13 +5,53 @@ import yt_dlp
 import asyncio
 from typing import Optional
 from collections import OrderedDict
+import base64
 import os
 import logging
+import tempfile
 
 # Setup logger
 logger = logging.getLogger('discord.music')
 
-COOKIES_FILE = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'cookies.txt')
+def _resolve_cookies() -> str | None:
+    """Return a path to a usable cookies file, or None.
+
+    Priority:
+    1. YOUTUBE_COOKIES_B64 env var  (base64-encoded cookies.txt content)
+    2. YOUTUBE_COOKIES_FILE env var (explicit path to cookies.txt)
+    3. cookies.txt next to bot root
+    """
+    # 1. Base64 env var — decode into a temp file each startup
+    b64 = os.environ.get('YOUTUBE_COOKIES_B64')
+    if b64:
+        try:
+            data = base64.b64decode(b64)
+            tmp = tempfile.NamedTemporaryFile(delete=False, suffix='.txt', mode='wb')
+            tmp.write(data)
+            tmp.flush()
+            tmp.close()
+            logger.info(f"YouTube cookies loaded from YOUTUBE_COOKIES_B64 → {tmp.name}")
+            return tmp.name
+        except Exception as e:
+            logger.warning(f"Failed to decode YOUTUBE_COOKIES_B64: {e}")
+
+    # 2. Explicit file path env var
+    env_path = os.environ.get('YOUTUBE_COOKIES_FILE')
+    if env_path and os.path.exists(env_path):
+        logger.info(f"YouTube cookies loaded from YOUTUBE_COOKIES_FILE → {env_path}")
+        return env_path
+
+    # 3. Default location
+    default = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'cookies.txt')
+    if os.path.exists(default):
+        logger.info(f"YouTube cookies loaded from {default}")
+        return default
+
+    logger.warning(
+        "No YouTube cookies found. Downloads may fail with 403 on server IPs. "
+        "Set YOUTUBE_COOKIES_B64 in your .env (see README) or place cookies.txt in the bot root."
+    )
+    return None
 
 
 class Music(commands.Cog):
@@ -21,15 +61,7 @@ class Music(commands.Cog):
         self.now_playing = {}  # Current song per guild
         logger.info("Music cog initialized")
 
-        cookies = COOKIES_FILE if os.path.exists(COOKIES_FILE) else None
-        if cookies:
-            logger.info(f"Using YouTube cookies from {cookies}")
-        else:
-            logger.warning(
-                f"No cookies.txt found at {COOKIES_FILE}. "
-                "YouTube downloads may fail with 403 on server IPs. "
-                "Export cookies from a logged-in browser and place them there."
-            )
+        cookies = _resolve_cookies()
 
         # yt-dlp options for metadata/search (no download)
         self.ytdl_options = {
