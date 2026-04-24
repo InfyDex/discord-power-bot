@@ -61,9 +61,9 @@ class Music(commands.Cog):
         self.now_playing = {}  # Current song per guild
         logger.info("Music cog initialized")
 
-        cookies = _resolve_cookies()
+        self._cookies_file = _resolve_cookies()
 
-        # yt-dlp options for metadata/search (no download)
+        # yt-dlp options for metadata/search only (no download)
         self.ytdl_options = {
             'format': 'bestaudio/best',
             'extractaudio': True,
@@ -81,32 +81,12 @@ class Music(commands.Cog):
             'playlistend': 50,
         }
 
-        # Separate yt-dlp options for downloading audio files
-        self.ytdl_download_options = {
-            'format': 'bestaudio/best',
-            'outtmpl': 'downloads/%(id)s.%(ext)s',
-            'restrictfilenames': True,
-            'nocheckcertificate': True,
-            'ignoreerrors': False,
-            'logtostderr': False,
-            'quiet': True,
-            'no_warnings': True,
-            'default_search': 'ytsearch',
-            'source_address': '0.0.0.0',
-            **(({'cookiefile': cookies}) if cookies else {}),
-            'postprocessors': [{
-                'key': 'FFmpegExtractAudio',
-                'preferredcodec': 'mp3',
-                'preferredquality': '192',
-            }],
-        }
-
         self.ffmpeg_options = {
             'options': '-vn'
         }
 
         self.ytdl = yt_dlp.YoutubeDL(self.ytdl_options)
-        self.ytdl_downloader = yt_dlp.YoutubeDL(self.ytdl_download_options)
+        # Downloads are handled via yt-dlp CLI subprocess (more reliable on server IPs)
 
         # LRU audio cache: OrderedDict keyed by video ID → local file path
         # Keeps the last AUDIO_CACHE_LIMIT songs on disk; oldest evicted when full
@@ -203,17 +183,60 @@ class Music(commands.Cog):
             logger.error(f"Error extracting playlist: {e}", exc_info=True)
             return None
 
+    async def _download_via_subprocess(self, song: dict) -> str | None:
+        """Download audio using yt-dlp CLI subprocess.
+
+        The CLI is more reliable than the Python API on server IPs:
+        it handles PO tokens, retries, and format negotiation better.
+        Cookies are passed directly if available.
+        """
+        video_id = song.get('id') or song['webpage_url'].split('v=')[-1].split('&')[0]
+        mp3_path = os.path.join('downloads', f"{video_id}.mp3")
+
+        cmd = [
+            'yt-dlp',
+            '--no-playlist',
+            '-f', 'bestaudio/best',
+            '-x', '--audio-format', 'mp3', '--audio-quality', '192K',
+            '--no-check-certificates',
+            '-o', os.path.join('downloads', '%(id)s.%(ext)s'),
+            '--quiet', '--no-warnings',
+        ]
+        if self._cookies_file and os.path.exists(self._cookies_file):
+            cmd += ['--cookies', self._cookies_file]
+        cmd.append(song['webpage_url'])
+
+        logger.info(f"Running yt-dlp CLI: {' '.join(cmd[-3:])}")
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            _, stderr = await proc.communicate()
+            if proc.returncode != 0:
+                logger.error(f"yt-dlp exited {proc.returncode}: {stderr.decode(errors='replace').strip()}")
+                return None
+        except Exception as e:
+            logger.error(f"yt-dlp subprocess error: {e}", exc_info=True)
+            return None
+
+        if not os.path.exists(mp3_path):
+            logger.error(f"Expected output not found: {mp3_path}")
+            return None
+
+        return mp3_path
+
     async def get_audio_file(self, song: dict) -> str | None:
         """Return a local audio file path for the song, using cache when available.
 
         Cache behaviour:
         - Hit  → move to end (most recently used), return immediately, no download
-        - Miss → download, add to cache; if cache exceeds AUDIO_CACHE_LIMIT evict
-                 the oldest entry and delete its file from disk
+        - Miss → download via yt-dlp CLI, add to cache
+        - Evict → oldest file deleted from disk when cache exceeds AUDIO_CACHE_LIMIT
         """
         video_id = song.get('id')
         if not video_id:
-            # Derive ID from webpage_url as a fallback key
             video_id = song['webpage_url'].split('v=')[-1].split('&')[0]
 
         # Cache hit
@@ -223,33 +246,15 @@ class Music(commands.Cog):
                 self.audio_cache.move_to_end(video_id)
                 logger.info(f"Cache hit for '{song['title']}' — {file_path}")
                 return file_path
-            # File was deleted externally; remove stale entry
             del self.audio_cache[video_id]
 
-        # Cache miss — download
+        # Cache miss — download via CLI
         logger.info(f"Cache miss for '{song['title']}' — downloading...")
-        try:
-            loop = asyncio.get_event_loop()
-            data = await loop.run_in_executor(
-                None,
-                lambda: self.ytdl_downloader.extract_info(song['webpage_url'], download=True)
-            )
-            if data and 'entries' in data:
-                data = data['entries'][0]
-            if not data:
-                return None
-
-            base = self.ytdl_downloader.prepare_filename(data)
-            mp3_path = os.path.splitext(base)[0] + '.mp3'
-            file_path = mp3_path if os.path.exists(mp3_path) else base
-            if not os.path.exists(file_path):
-                logger.error(f"Downloaded file not found at {mp3_path} or {base}")
-                return None
-        except Exception as e:
-            logger.error(f"Failed to download '{song['title']}': {e}", exc_info=True)
+        file_path = await self._download_via_subprocess(song)
+        if not file_path:
             return None
 
-        # Add to cache and evict oldest if over limit
+        # Add to cache, evict oldest if over limit
         self.audio_cache[video_id] = file_path
         if len(self.audio_cache) > self.AUDIO_CACHE_LIMIT:
             oldest_id, oldest_path = self.audio_cache.popitem(last=False)
