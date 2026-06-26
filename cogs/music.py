@@ -237,12 +237,18 @@ class Music(commands.Cog):
             cmd += ['--cookies', self._cookies_file]
         cmd.append(song['webpage_url'])
 
+        # Strip large env vars that would push the subprocess over E2BIG (ARGV_MAX).
+        # Cookies are already written to a temp file and passed via --cookies flag.
+        sub_env = os.environ.copy()
+        sub_env.pop('YOUTUBE_COOKIES_B64', None)
+
         logger.info(f"Running yt-dlp CLI: {' '.join(cmd[-3:])}")
         try:
             proc = await asyncio.create_subprocess_exec(
                 *cmd,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
+                env=sub_env,
             )
             _, stderr = await proc.communicate()
             if proc.returncode != 0:
