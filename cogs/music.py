@@ -15,24 +15,34 @@ import tempfile
 # Setup logger
 logger = logging.getLogger('discord.music')
 
-def _find_ytdlp() -> str:
-    """Return the path to the yt-dlp executable.
+def _find_ytdlp() -> list[str]:
+    """Return a command prefix for yt-dlp.
 
-    Checks system PATH first, then falls back to the virtualenv bin directory
-    (same folder as the running Python interpreter).
+    Priority:
+    1. yt-dlp binary in PATH
+    2. yt-dlp binary next to the running Python interpreter (venv)
+    3. python -m yt_dlp (works when installed as package without a CLI script)
     """
     found = shutil.which('yt-dlp')
     if found:
-        return found
-    venv_bin = os.path.join(os.path.dirname(sys.executable), 'yt-dlp')
-    if os.path.exists(venv_bin):
-        return venv_bin
+        return [found]
+    venv_dir = os.path.dirname(sys.executable)
+    for name in ('yt-dlp', 'yt-dlp.exe'):
+        venv_bin = os.path.join(venv_dir, name)
+        if os.path.exists(venv_bin):
+            return [venv_bin]
+    try:
+        import yt_dlp as _yt  # noqa: F401
+        logger.info("yt-dlp binary not found in PATH; falling back to 'python -m yt_dlp'")
+        return [sys.executable, '-m', 'yt_dlp']
+    except ImportError:
+        pass
     raise FileNotFoundError(
         "yt-dlp not found. Install it with: pip install yt-dlp"
     )
 
 
-YTDLP_BIN = _find_ytdlp()
+YTDLP_CMD = _find_ytdlp()
 
 
 def _resolve_cookies() -> str | None:
@@ -102,6 +112,8 @@ class Music(commands.Cog):
             'source_address': '0.0.0.0',
             'playlistend': 50,
         }
+        if self._cookies_file and os.path.exists(self._cookies_file):
+            self.ytdl_options['cookiefile'] = self._cookies_file
 
         self.ffmpeg_options = {
             'options': '-vn'
@@ -129,7 +141,7 @@ class Music(commands.Cog):
         """Search YouTube and return first result"""
         try:
             logger.info(f"Searching YouTube for: {query}")
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             data = await loop.run_in_executor(
                 None, 
                 lambda: self.ytdl.extract_info(f"ytsearch5:{query}", download=False)
@@ -150,9 +162,8 @@ class Music(commands.Cog):
             result = {
                 'id': data['id'],
                 'title': data['title'],
-                'url': data['url'],
                 'duration': data['duration'],
-                'thumbnail': data['thumbnail'],
+                'thumbnail': data.get('thumbnail', ''),
                 'webpage_url': data['webpage_url']
             }
             logger.info(f"Found: {result['title']}")
@@ -165,7 +176,7 @@ class Music(commands.Cog):
         """Extract playlist information from URL"""
         try:
             logger.info(f"Extracting playlist info from: {url}")
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             data = await loop.run_in_executor(
                 None,
                 lambda: self.ytdl.extract_info(url, download=False)
@@ -180,9 +191,8 @@ class Music(commands.Cog):
                 return [{
                     'id': data['id'],
                     'title': data['title'],
-                    'url': data['url'],
                     'duration': data['duration'],
-                    'thumbnail': data['thumbnail'],
+                    'thumbnail': data.get('thumbnail', ''),
                     'webpage_url': data['webpage_url']
                 }]
             
@@ -193,9 +203,8 @@ class Music(commands.Cog):
                     songs.append({
                         'id': entry['id'],
                         'title': entry['title'],
-                        'url': entry['url'],
                         'duration': entry['duration'],
-                        'thumbnail': entry.get('thumbnail', data.get('thumbnail')),
+                        'thumbnail': entry.get('thumbnail', data.get('thumbnail', '')),
                         'webpage_url': entry['webpage_url']
                     })
             
@@ -216,7 +225,7 @@ class Music(commands.Cog):
         mp3_path = os.path.join('downloads', f"{video_id}.mp3")
 
         cmd = [
-            YTDLP_BIN,
+            *YTDLP_CMD,
             '--no-playlist',
             '-f', 'bestaudio/best',
             '-x', '--audio-format', 'mp3', '--audio-quality', '192K',
