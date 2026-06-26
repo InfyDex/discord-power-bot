@@ -6,6 +6,7 @@ import asyncio
 from typing import Optional
 from collections import OrderedDict
 import base64
+import glob
 import os
 import logging
 import shutil
@@ -111,6 +112,7 @@ class Music(commands.Cog):
             'default_search': 'ytsearch',
             'source_address': '0.0.0.0',
             'playlistend': 50,
+            'extractor_args': {'youtube': {'player_client': ['ios', 'android']}},
         }
         if self._cookies_file and os.path.exists(self._cookies_file):
             self.ytdl_options['cookiefile'] = self._cookies_file
@@ -222,7 +224,6 @@ class Music(commands.Cog):
         Cookies are passed directly if available.
         """
         video_id = song.get('id') or song['webpage_url'].split('v=')[-1].split('&')[0]
-        mp3_path = os.path.join('downloads', f"{video_id}.mp3")
 
         cmd = [
             *YTDLP_CMD,
@@ -230,8 +231,8 @@ class Music(commands.Cog):
             '-f', 'bestaudio/best',
             '-x', '--audio-format', 'mp3', '--audio-quality', '192K',
             '--no-check-certificates',
+            '--extractor-args', 'youtube:player_client=ios,android',
             '-o', os.path.join('downloads', '%(id)s.%(ext)s'),
-            '--quiet', '--no-warnings',
         ]
         if self._cookies_file and os.path.exists(self._cookies_file):
             cmd += ['--cookies', self._cookies_file]
@@ -251,18 +252,25 @@ class Music(commands.Cog):
                 env=sub_env,
             )
             _, stderr = await proc.communicate()
+            stderr_text = stderr.decode(errors='replace').strip()
             if proc.returncode != 0:
-                logger.error(f"yt-dlp exited {proc.returncode}: {stderr.decode(errors='replace').strip()}")
+                logger.error(f"yt-dlp exited {proc.returncode}: {stderr_text}")
                 return None
+            if stderr_text:
+                logger.warning(f"yt-dlp stderr: {stderr_text}")
         except Exception as e:
             logger.error(f"yt-dlp subprocess error: {e}", exc_info=True)
             return None
 
-        if not os.path.exists(mp3_path):
-            logger.error(f"Expected output not found: {mp3_path}")
+        # yt-dlp may produce .mp3 (with ffmpeg) or a native format (.webm, .opus, .m4a)
+        # if ffmpeg is unavailable. Accept whichever file was actually created.
+        matches = glob.glob(os.path.join('downloads', f"{video_id}.*"))
+        if not matches:
+            logger.error(f"yt-dlp produced no output file for video_id={video_id}")
             return None
-
-        return mp3_path
+        file_path = matches[0]
+        logger.info(f"Downloaded: {file_path}")
+        return file_path
 
     async def get_audio_file(self, song: dict) -> str | None:
         """Return a local audio file path for the song, using cache when available.
