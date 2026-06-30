@@ -145,8 +145,8 @@ class Music(commands.Cog):
             logger.info(f"Searching YouTube for: {query}")
             loop = asyncio.get_running_loop()
             data = await loop.run_in_executor(
-                None, 
-                lambda: self.ytdl.extract_info(f"ytsearch5:{query}", download=False)
+                None,
+                lambda: self.ytdl.extract_info(f"ytsearch1:{query}", download=False)
             )
 
             if not data:
@@ -164,7 +164,7 @@ class Music(commands.Cog):
             result = {
                 'id': data['id'],
                 'title': data['title'],
-                'duration': data['duration'],
+                'duration': data.get('duration') or 0,
                 'thumbnail': data.get('thumbnail', ''),
                 'webpage_url': data['webpage_url']
             }
@@ -193,11 +193,11 @@ class Music(commands.Cog):
                 return [{
                     'id': data['id'],
                     'title': data['title'],
-                    'duration': data['duration'],
+                    'duration': data.get('duration') or 0,
                     'thumbnail': data.get('thumbnail', ''),
                     'webpage_url': data['webpage_url']
                 }]
-            
+
             # Extract all videos from playlist
             songs = []
             for entry in data['entries']:
@@ -205,7 +205,7 @@ class Music(commands.Cog):
                     songs.append({
                         'id': entry['id'],
                         'title': entry['title'],
-                        'duration': entry['duration'],
+                        'duration': entry.get('duration') or 0,
                         'thumbnail': entry.get('thumbnail', data.get('thumbnail', '')),
                         'webpage_url': entry['webpage_url']
                     })
