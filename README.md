@@ -88,6 +88,54 @@ The bot is designed for easy expansion. To add new features:
 3. **The bot will automatically load** your new cog on restart
 4. **Update documentation** by adding your new commands to `COMMANDS.md`
 
+## Music
+
+YouTube playback via `yt-dlp` + FFmpeg. Requires FFmpeg installed and on PATH (`choco install ffmpeg` on Windows).
+
+### Commands
+
+| Slash | Prefix | Description |
+|---|---|---|
+| `/play <query>` | `!play` / `!p` | Play a song/URL, or queue if already playing (supports playlists) |
+| `/search <query>` | — | Search YouTube, pick a result from a dropdown to queue |
+| `/skip` | `!skip` / `!s` | Skip the current song |
+| `/pause` | — | Pause playback |
+| `/resume` | — | Resume playback |
+| `/stop` | — | Stop, clear queue, disconnect |
+| `/queue` | — | Show now playing + up next |
+| `/nowplaying` | — | Show current song |
+| `/clear` | `!clear` / `!c` | Clear the queue |
+| — | `!remove <pos>` / `!rm` | Remove one song from the queue by position |
+| `/shuffle` | — | Shuffle the queue |
+| `/loop <off\|track\|queue>` | — | Set loop mode |
+| `/autoplay` | — | Toggle auto-queueing related songs (YouTube Mix) when the queue empties |
+| `/volume <0-200>` | — | Set playback volume % |
+| — | `!testmusic` | Check PyNaCl / yt-dlp / FFmpeg / cookie status |
+
+### YouTube cookies
+
+YouTube blocks download requests from server IPs (VPS, cloud hosts) with a 403 or a
+"Sign in to confirm you're not a bot" error unless the request carries a logged-in
+session's cookies. On a home/residential IP this usually isn't needed.
+
+**Get `cookies.txt`:**
+1. Log into youtube.com in your browser.
+2. Export cookies with a browser extension, e.g. "Get cookies.txt LOCALLY" (Chrome/Firefox). Must be Netscape cookie file format.
+3. Use one of the options below to give it to the bot — pick whichever fits how you run/deploy it.
+
+**Where to put it — pick one:**
+
+| Method | How | When to use |
+|---|---|---|
+| File in bot root | Save as `cookies.txt` next to `bot.py` | Simplest — running the bot locally or on a VPS you control |
+| `YOUTUBE_COOKIES_FILE` | Set in `.env` to an explicit path, e.g. `YOUTUBE_COOKIES_FILE=/secure/path/cookies.txt` | Cookie file lives outside the repo dir |
+| `YOUTUBE_COOKIES_B64` | Base64-encode the file and paste into `.env`: `YOUTUBE_COOKIES_B64=$(base64 -w0 cookies.txt)` | Host with no persistent filesystem / secrets injected as env vars only (Railway, Heroku, etc.) |
+| `COOKIES_FROM_BROWSER` | Set in `.env` to `chrome`, `firefox`, `edge`, etc. (add `:ProfileName` for a specific profile) | Bot runs on the **same machine** as the logged-in browser — local dev only |
+
+Priority if multiple are set: `YOUTUBE_COOKIES_B64` > `YOUTUBE_COOKIES_FILE` > `cookies.txt` in bot root > `COOKIES_FROM_BROWSER`.
+
+`cookies.txt` contains live session tokens — never commit it (already in `.gitignore`), never share it.
+
 ## Configuration
 
 ### Environment Variables
@@ -95,6 +143,7 @@ The bot is designed for easy expansion. To add new features:
 - `DISCORD_COMMAND_PREFIX` - Set the bot's command prefix (default is `!`). Example: `DISCORD_COMMAND_PREFIX=?`
 - `LOG_LEVEL` - Logging level (DEBUG, INFO, WARNING, ERROR) - default: INFO
 - `LOG_FILE` - Log file path - default: bot.log
+- `YOUTUBE_COOKIES_B64` / `YOUTUBE_COOKIES_FILE` / `COOKIES_FROM_BROWSER` - YouTube cookie auth, see [Music](#music)
 
 ### Constants
 Edit `constants.py` to:
