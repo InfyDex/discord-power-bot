@@ -4,6 +4,7 @@ Handles environment variables and bot configuration.
 """
 
 import os
+import sys
 import logging
 from dotenv import load_dotenv
 
@@ -44,11 +45,14 @@ class Config:
     @classmethod
     def setup_logging(cls):
         """Setup logging configuration"""
+        if hasattr(sys.stdout, 'reconfigure'):
+            sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+
         logging.basicConfig(
             level=getattr(logging, cls.LOG_LEVEL.upper()),
             format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
             handlers=[
-                logging.FileHandler(cls.LOG_FILE),
+                logging.FileHandler(cls.LOG_FILE, encoding='utf-8'),
                 logging.StreamHandler()
             ]
         )
