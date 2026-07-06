@@ -53,6 +53,10 @@ def resolve_cookies() -> tuple[Optional[str], Optional[tuple]]:
             tmp = tempfile.NamedTemporaryFile(delete=False, suffix='.txt', mode='wb')
             tmp.write(data)
             tmp.close()
+            # Drop the large B64 blob from the env now that it's on disk. Otherwise every
+            # child process (ffmpeg included) inherits it and can hit E2BIG / "Argument
+            # list too long", since ARGV_MAX counts the environment too.
+            os.environ.pop('YOUTUBE_COOKIES_B64', None)
             logger.info(f"YouTube cookies loaded from YOUTUBE_COOKIES_B64 -> {tmp.name}")
             return tmp.name, None
         except Exception as e:
