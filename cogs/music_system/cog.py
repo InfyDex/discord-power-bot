@@ -73,7 +73,14 @@ class Music(commands.Cog):
 
     async def _resolve_query(self, query: str) -> list[Track]:
         is_url = query.startswith('http://') or query.startswith('https://')
-        data = await self.youtube.extract(query) if is_url else await self.youtube.search(query, limit=1)
+        if is_url:
+            cached = self.youtube.lookup_cached_url(query)
+            if cached:
+                logger.info(f"URL already downloaded, skipping extraction: {query}")
+                return [Track.from_dict(cached)]
+            data = await self.youtube.extract(query)
+        else:
+            data = await self.youtube.search(query, limit=1)
         return [Track.from_dict(d) for d in data]
 
     @staticmethod
@@ -120,9 +127,10 @@ class Music(commands.Cog):
             return
 
         player.record_played(track)
-        file_path = await self.youtube.get_audio_file(
-            {'id': track.id, 'title': track.title, 'webpage_url': track.webpage_url}
-        )
+        file_path = await self.youtube.get_audio_file({
+            'id': track.id, 'title': track.title, 'webpage_url': track.webpage_url,
+            'duration': track.duration, 'thumbnail': track.thumbnail,
+        })
         if not file_path:
             logger.error(f"Could not get audio for '{track.title}', skipping")
             await self._advance(guild)

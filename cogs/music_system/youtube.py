@@ -4,6 +4,7 @@ import base64
 import glob
 import logging
 import os
+import re
 import shutil
 import sys
 import tempfile
@@ -12,11 +13,23 @@ from typing import Optional
 
 import yt_dlp
 
+from .db import TrackDB
+
 logger = logging.getLogger('discord.music')
 
 DOWNLOAD_DIR = 'downloads'
 PLAYER_CLIENTS = 'ios,android'
 BOT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+_VIDEO_ID_RE = re.compile(
+    r'(?:youtube\.com/(?:watch\?v=|shorts/|embed/)|youtu\.be/)([\w-]{11})'
+)
+
+
+def extract_video_id(url: str) -> Optional[str]:
+    """Pull an 11-char YouTube video id out of a watch/shorts/embed/youtu.be URL, if present."""
+    match = _VIDEO_ID_RE.search(url)
+    return match.group(1) if match else None
 
 
 def find_ytdlp_cmd() -> list[str]:
@@ -119,6 +132,7 @@ class YTDLPClient:
         self.cache_limit = cache_limit
         self._cache: OrderedDict[str, str] = OrderedDict()
         os.makedirs(DOWNLOAD_DIR, exist_ok=True)
+        self.db = TrackDB()
 
     @staticmethod
     def _to_track_dict(entry: dict) -> dict:
@@ -158,6 +172,19 @@ class YTDLPClient:
         except Exception as e:
             logger.error(f"Error extracting '{url}': {e}", exc_info=True)
             return []
+
+    def lookup_cached_url(self, url: str) -> Optional[dict]:
+        """If `url` names a video we already downloaded, return its track dict without hitting the network."""
+        video_id = extract_video_id(url)
+        if not video_id:
+            return None
+        row = self.db.get(video_id)
+        if not row or not os.path.exists(row['file_path']):
+            return None
+        return {
+            'id': row['id'], 'title': row['title'], 'duration': row['duration'],
+            'thumbnail': row['thumbnail'], 'webpage_url': row['webpage_url'],
+        }
 
     async def related(self, video_id: str, exclude_ids: set) -> Optional[dict]:
         """First unseen track from YouTube's auto-generated Mix, for autoplay."""
@@ -214,24 +241,43 @@ class YTDLPClient:
         return matches[0]
 
     async def get_audio_file(self, track: dict) -> Optional[str]:
-        """Cached download: cache hit moves the entry to MRU, miss downloads and evicts LRU past cache_limit."""
+        """Cached download: checks in-memory cache, then the sqlite registry (survives restarts),
+        then downloads. New downloads are recorded in the DB, which drives LRU eviction so the
+        downloads dir stays bounded across the bot's lifetime, not just within one process run.
+        """
         video_id = track['id']
         if video_id in self._cache:
             path = self._cache[video_id]
             if os.path.exists(path):
                 self._cache.move_to_end(video_id)
-                logger.info(f"Cache hit for '{track['title']}' -> {path}")
+                self.db.record_play(video_id)
+                logger.info(f"Cache hit (memory) for '{track['title']}' -> {path}")
                 return path
             del self._cache[video_id]
+
+        row = self.db.get(video_id)
+        if row:
+            if os.path.exists(row['file_path']):
+                self._cache[video_id] = row['file_path']
+                self._cache.move_to_end(video_id)
+                self.db.record_play(video_id)
+                logger.info(f"Cache hit (already downloaded) for '{track['title']}' -> {row['file_path']}")
+                return row['file_path']
+            logger.warning(f"DB row for {video_id} points at missing file, re-downloading")
+            self.db.delete(video_id)
 
         logger.info(f"Cache miss for '{track['title']}' — downloading...")
         path = await self._download(track)
         if not path:
             return None
 
+        self.db.upsert(track, path)
+        self.db.record_play(video_id)
         self._cache[video_id] = path
-        if len(self._cache) > self.cache_limit:
-            _, old_path = self._cache.popitem(last=False)
+        self._cache.move_to_end(video_id)
+
+        for old_id, old_path in self.db.evict_lru(self.cache_limit):
+            self._cache.pop(old_id, None)
             try:
                 if os.path.exists(old_path):
                     os.remove(old_path)
