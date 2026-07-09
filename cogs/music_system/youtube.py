@@ -107,7 +107,7 @@ class YTDLPClient:
     negotiation more reliably than the Python API on server IPs.
     """
 
-    def __init__(self, cache_limit: int = 100):
+    def __init__(self, cache_limit: int = 1000):
         self.ytdlp_cmd = find_ytdlp_cmd()
         self.cookiefile, self.cookies_from_browser = resolve_cookies()
 
