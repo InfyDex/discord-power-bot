@@ -67,6 +67,15 @@ class TrackDB:
         self.conn.execute('DELETE FROM tracks WHERE video_id = ?', (video_id,))
         self.conn.commit()
 
+    def all_downloaded(self) -> list[dict]:
+        rows = self.conn.execute(
+            'SELECT video_id, title, webpage_url, duration, thumbnail, file_path FROM tracks'
+        ).fetchall()
+        return [
+            {'id': r[0], 'title': r[1], 'webpage_url': r[2], 'duration': r[3], 'thumbnail': r[4], 'file_path': r[5]}
+            for r in rows
+        ]
+
     def evict_lru(self, limit: int) -> list[tuple[str, str]]:
         """Delete rows past `limit`, oldest-played-first (falls back to download time). Returns (video_id, file_path) evicted."""
         rows = self.conn.execute(
