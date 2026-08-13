@@ -1,6 +1,8 @@
 """Music cog: slash + prefix commands for YouTube playback, queueing, and playback controls."""
 import asyncio
 import logging
+import os
+import random
 
 import discord
 from discord import app_commands
@@ -352,6 +354,39 @@ class Music(commands.Cog):
         removed = player.queue.pop(position - 1)
         logger.info(f"Removed song from position {position}: {removed.title}")
         await ctx.send(f"🗑️ Removed: **{removed.title}**")
+
+    @commands.command(name="mix")
+    async def mix(self, ctx):
+        """Shuffle every cached (already-downloaded) song and loop through them, each once per lap."""
+        if not ctx.author.voice:
+            await ctx.send("❌ You need to be in a voice channel!")
+            return
+
+        rows = self.youtube.db.all_downloaded()
+        tracks = [Track.from_dict(r) for r in rows if os.path.exists(r['file_path'])]
+        if not tracks:
+            await ctx.send("❌ No cached songs yet — play something first!")
+            return
+
+        random.shuffle(tracks)
+
+        try:
+            voice_client = await self._connect(ctx.guild, ctx.author.voice.channel)
+        except Exception as e:
+            logger.error(f"Failed to connect to voice: {e}", exc_info=True)
+            await ctx.send(f"❌ Failed to connect to voice channel: {e}")
+            return
+
+        player = self._get_player(ctx.guild.id, voice_client)
+        player.queue = tracks
+        player.current = None
+        player.loop_mode = LoopMode.QUEUE
+        logger.info(f"Mix started for guild {ctx.guild.id}: {len(tracks)} cached song(s)")
+
+        await ctx.send(f"🔀 Mixing **{len(tracks)}** cached song(s) on shuffle-loop!")
+
+        if not voice_client.is_playing() and not voice_client.is_paused():
+            await self._advance(ctx.guild)
 
     @app_commands.command(name="shuffle", description="Shuffle the queue")
     async def shuffle(self, interaction: discord.Interaction):
