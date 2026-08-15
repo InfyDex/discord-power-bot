@@ -37,9 +37,11 @@ class GuildPlayer:
     """
     guild_id: int
     voice_client: Optional[object] = None
+    text_channel: Optional[object] = None  # where to post "Now Playing" on each track switch
     queue: list = field(default_factory=list)
     history: list = field(default_factory=list)  # played video ids, for autoplay dedup
     current: Optional[Track] = None
+    last_announced_id: Optional[str] = None
     loop_mode: LoopMode = LoopMode.OFF
     autoplay: bool = False
     volume: float = 1.0  # 0.0-2.0, applied via discord.PCMVolumeTransformer

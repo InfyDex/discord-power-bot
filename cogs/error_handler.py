@@ -52,6 +52,16 @@ class ErrorHandler(commands.Cog):
             await ctx.send(embed=embed)
             return
         
+        # Handle guild-only commands used in DMs
+        if isinstance(error, commands.NoPrivateMessage):
+            embed = EmbedUtils.create_error_embed(
+                title="❌ Server Only",
+                description="This command can only be used in a server, not in DMs.",
+                author_user=ctx.author
+            )
+            await ctx.send(embed=embed)
+            return
+
         # Handle missing required arguments
         if isinstance(error, commands.MissingRequiredArgument):
             embed = EmbedUtils.create_error_embed(
