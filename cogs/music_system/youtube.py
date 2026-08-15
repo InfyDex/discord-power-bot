@@ -175,6 +175,10 @@ class YTDLPClient:
 
     def lookup_cached_url(self, url: str) -> Optional[dict]:
         """If `url` names a video we already downloaded, return its track dict without hitting the network."""
+        if 'list=' in url:
+            # A playlist URL must go through full extraction even if its lead video is
+            # cached, otherwise the rest of the playlist is silently dropped.
+            return None
         video_id = extract_video_id(url)
         if not video_id:
             return None

@@ -33,8 +33,10 @@ class _Responder:
     async def edit(self, content=None, embed=None):
         if isinstance(self._obj, discord.Interaction):
             await self._obj.edit_original_response(content=content, embed=embed)
-        else:
+        elif self._message:
             await self._message.edit(content=content, embed=embed)
+        else:
+            await self.send(content=content, embed=embed)
 
     @property
     def author(self):
@@ -43,6 +45,10 @@ class _Responder:
     @property
     def guild(self):
         return self._obj.guild
+
+    @property
+    def channel(self):
+        return self._obj.channel
 
 
 class Music(commands.Cog):
@@ -53,6 +59,19 @@ class Music(commands.Cog):
         logger.info("Music cog initialized")
 
     # ---------- shared helpers ----------
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        """Cog-wide gate for slash commands: music needs a guild (voice channels don't exist in DMs)."""
+        if interaction.guild is None:
+            await interaction.response.send_message("❌ Music commands only work in a server!")
+            return False
+        return True
+
+    async def cog_check(self, ctx) -> bool:
+        """Cog-wide gate for prefix commands: same guild-only rule as interaction_check."""
+        if ctx.guild is None:
+            raise commands.NoPrivateMessage()
+        return True
 
     def _get_player(self, guild_id: int, voice_client=None) -> GuildPlayer:
         player = self.players.get(guild_id)
@@ -111,32 +130,57 @@ class Music(commands.Cog):
             embed.set_footer(text=f"... and {len(tracks) - 5} more songs")
         return embed
 
+    @staticmethod
+    def _now_playing_embed(track: Track) -> discord.Embed:
+        embed = discord.Embed(
+            title="🎶 Now Playing",
+            description=f"[{track.title}]({track.webpage_url})",
+            color=discord.Color.purple(),
+        )
+        if track.thumbnail:
+            embed.set_thumbnail(url=track.thumbnail)
+        if track.duration:
+            embed.add_field(name="Duration", value=f"{track.duration // 60}:{track.duration % 60:02d}")
+        return embed
+
+    async def _announce_now_playing(self, player: GuildPlayer, track: Track):
+        """Post the track that just started. Skipped when the same track repeats (loop track)."""
+        if not player.text_channel or player.last_announced_id == track.id:
+            return
+        player.last_announced_id = track.id
+        try:
+            await player.text_channel.send(embed=self._now_playing_embed(track))
+        except discord.HTTPException as e:
+            logger.warning(f"Could not announce now playing in guild {player.guild_id}: {e}")
+
     async def _advance(self, guild: discord.Guild):
         """Play the next track for a guild. Wired as the `after` callback so playback self-continues."""
         player = self.players.get(guild.id)
         if not player or not player.voice_client or not player.voice_client.is_connected():
             return
 
-        track = player.next_track()
-        if not track and player.autoplay and player.current:
-            data = await self.youtube.related(player.current.id, set(player.history))
-            if data:
-                track = Track.from_dict(data)
+        while True:
+            track = player.next_track()
+            if not track and player.autoplay and player.current:
+                data = await self.youtube.related(player.current.id, set(player.history))
+                if data:
+                    track = Track.from_dict(data)
 
-        if not track:
-            player.current = None
-            logger.info(f"Queue empty for guild {guild.id}")
-            return
+            if not track:
+                player.current = None
+                logger.info(f"Queue empty for guild {guild.id}")
+                return
 
-        player.record_played(track)
-        file_path = await self.youtube.get_audio_file({
-            'id': track.id, 'title': track.title, 'webpage_url': track.webpage_url,
-            'duration': track.duration, 'thumbnail': track.thumbnail,
-        })
-        if not file_path:
+            player.record_played(track)
+            file_path = await self.youtube.get_audio_file({
+                'id': track.id, 'title': track.title, 'webpage_url': track.webpage_url,
+                'duration': track.duration, 'thumbnail': track.thumbnail,
+            })
+            if file_path:
+                break
             logger.error(f"Could not get audio for '{track.title}', skipping")
-            await self._advance(guild)
-            return
+            # Drop the broken track so track/queue loop modes don't retry it forever.
+            player.current = None
 
         def after_playback(error):
             if error:
@@ -146,6 +190,7 @@ class Music(commands.Cog):
         source = discord.PCMVolumeTransformer(discord.FFmpegPCMAudio(file_path, **FFMPEG_OPTIONS), volume=player.volume)
         player.voice_client.play(source, after=after_playback)
         logger.info(f"Playing: '{track.title}' from {file_path}")
+        await self._announce_now_playing(player, track)
 
     async def _handle_play(self, responder: _Responder, query: str):
         if not responder.author.voice:
@@ -161,6 +206,7 @@ class Music(commands.Cog):
             return
 
         player = self._get_player(responder.guild.id, voice_client)
+        player.text_channel = responder.channel
 
         await responder.send(f"🔍 Searching for: **{query}**...")
         tracks = await self._resolve_query(query)
@@ -206,9 +252,13 @@ class Music(commands.Cog):
 
         async def on_choose(select_interaction: discord.Interaction, data: dict):
             await select_interaction.response.defer()
+            if not select_interaction.user.voice:
+                await select_interaction.followup.send("❌ You need to be in a voice channel!")
+                return
             voice_channel = select_interaction.user.voice.channel
             voice_client = await self._connect(select_interaction.guild, voice_channel)
             player = self._get_player(select_interaction.guild.id, voice_client)
+            player.text_channel = select_interaction.channel
 
             track = Track.from_dict(data)
             player.add(track)
@@ -232,7 +282,7 @@ class Music(commands.Cog):
     @app_commands.command(name="skip", description="Skip the current song")
     async def skip(self, interaction: discord.Interaction):
         voice_client = discord.utils.get(self.bot.voice_clients, guild=interaction.guild)
-        if voice_client and voice_client.is_playing():
+        if voice_client and (voice_client.is_playing() or voice_client.is_paused()):
             voice_client.stop()
             logger.info(f"Skipped song in guild {interaction.guild.id}")
             await interaction.response.send_message("⏭️ Skipped!")
@@ -242,7 +292,7 @@ class Music(commands.Cog):
     @commands.command(name="skip", aliases=["s"])
     async def skip_prefix(self, ctx):
         voice_client = discord.utils.get(self.bot.voice_clients, guild=ctx.guild)
-        if voice_client and voice_client.is_playing():
+        if voice_client and (voice_client.is_playing() or voice_client.is_paused()):
             voice_client.stop()
             logger.info(f"Skipped song in guild {ctx.guild.id}")
             await ctx.send("⏭️ Skipped!")
@@ -255,6 +305,8 @@ class Music(commands.Cog):
         if voice_client and voice_client.is_playing():
             voice_client.pause()
             await interaction.response.send_message("⏸️ Paused!")
+        elif voice_client and voice_client.is_paused():
+            await interaction.response.send_message("⏸️ Already paused!")
         else:
             await interaction.response.send_message("❌ Nothing is playing!")
 
@@ -275,6 +327,7 @@ class Music(commands.Cog):
             if player:
                 player.queue.clear()
                 player.current = None
+                player.last_announced_id = None
             await voice_client.disconnect()
             await interaction.response.send_message("⏹️ Stopped and disconnected!")
         else:
@@ -312,14 +365,7 @@ class Music(commands.Cog):
     async def now_playing_cmd(self, interaction: discord.Interaction):
         player = self.players.get(interaction.guild.id)
         if player and player.current:
-            t = player.current
-            embed = discord.Embed(
-                title="🎶 Now Playing",
-                description=f"[{t.title}]({t.webpage_url})",
-                color=discord.Color.purple(),
-            )
-            embed.set_thumbnail(url=t.thumbnail)
-            await interaction.response.send_message(embed=embed)
+            await interaction.response.send_message(embed=self._now_playing_embed(player.current))
         else:
             await interaction.response.send_message("❌ Nothing is playing!")
 
@@ -378,6 +424,7 @@ class Music(commands.Cog):
             return
 
         player = self._get_player(ctx.guild.id, voice_client)
+        player.text_channel = ctx.channel
         player.queue = tracks
         player.current = None
         player.loop_mode = LoopMode.QUEUE
