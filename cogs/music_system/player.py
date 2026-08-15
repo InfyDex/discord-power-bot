@@ -1,6 +1,7 @@
 """Per-guild playback state: queue, loop mode, volume, autoplay history."""
 import enum
 import random
+import time
 from dataclasses import dataclass, field
 from typing import Optional
 
@@ -45,6 +46,33 @@ class GuildPlayer:
     loop_mode: LoopMode = LoopMode.OFF
     autoplay: bool = False
     volume: float = 1.0  # 0.0-2.0, applied via discord.PCMVolumeTransformer
+
+    # Playback clock. discord.py does not expose a stream position, so track it
+    # here — the API reports it, and pausing must not keep it running.
+    started_at: Optional[float] = None
+    elapsed: float = 0.0
+
+    def mark_started(self):
+        self.started_at = time.monotonic()
+        self.elapsed = 0.0
+
+    def mark_paused(self):
+        if self.started_at is not None:
+            self.elapsed += time.monotonic() - self.started_at
+            self.started_at = None
+
+    def mark_resumed(self):
+        self.started_at = time.monotonic()
+
+    def mark_stopped(self):
+        self.started_at = None
+        self.elapsed = 0.0
+
+    def position(self) -> float:
+        """Seconds into the current track."""
+        if self.started_at is None:
+            return self.elapsed
+        return self.elapsed + (time.monotonic() - self.started_at)
 
     def add(self, track: Track):
         self.queue.append(track)

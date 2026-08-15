@@ -8,6 +8,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
+from .bridge import MusicBridge
 from .player import GuildPlayer, LoopMode, Track
 from .views import SearchView
 from .youtube import YTDLPClient
@@ -56,7 +57,20 @@ class Music(commands.Cog):
         self.bot = bot
         self.youtube = YTDLPClient()
         self.players: dict[int, GuildPlayer] = {}
+        # Shared-database bridge: lets the music API drive this player and read
+        # its live state. Harmless when no API is running.
+        self.bridge = MusicBridge(self)
         logger.info("Music cog initialized")
+
+    async def cog_load(self):
+        self.bridge.start()
+
+    async def cog_unload(self):
+        self.bridge.stop()
+
+    def _sync(self, guild_id: int):
+        """Publish player state to the shared database after a change."""
+        self.bridge.sync(guild_id)
 
     # ---------- shared helpers ----------
 
@@ -168,6 +182,8 @@ class Music(commands.Cog):
 
             if not track:
                 player.current = None
+                player.mark_stopped()
+                self._sync(guild.id)
                 logger.info(f"Queue empty for guild {guild.id}")
                 return
 
@@ -189,6 +205,8 @@ class Music(commands.Cog):
 
         source = discord.PCMVolumeTransformer(discord.FFmpegPCMAudio(file_path, **FFMPEG_OPTIONS), volume=player.volume)
         player.voice_client.play(source, after=after_playback)
+        player.mark_started()
+        self._sync(guild.id)
         logger.info(f"Playing: '{track.title}' from {file_path}")
         await self._announce_now_playing(player, track)
 
@@ -217,6 +235,7 @@ class Music(commands.Cog):
         for t in tracks:
             player.add(t)
         logger.info(f"Added {len(tracks)} track(s) to queue for guild {responder.guild.id}")
+        self._sync(responder.guild.id)
 
         await responder.edit(content=None, embed=self._queue_embed(tracks))
 
@@ -304,6 +323,10 @@ class Music(commands.Cog):
         voice_client = discord.utils.get(self.bot.voice_clients, guild=interaction.guild)
         if voice_client and voice_client.is_playing():
             voice_client.pause()
+            player = self.players.get(interaction.guild.id)
+            if player:
+                player.mark_paused()
+            self._sync(interaction.guild.id)
             await interaction.response.send_message("⏸️ Paused!")
         elif voice_client and voice_client.is_paused():
             await interaction.response.send_message("⏸️ Already paused!")
@@ -315,6 +338,10 @@ class Music(commands.Cog):
         voice_client = discord.utils.get(self.bot.voice_clients, guild=interaction.guild)
         if voice_client and voice_client.is_paused():
             voice_client.resume()
+            player = self.players.get(interaction.guild.id)
+            if player:
+                player.mark_resumed()
+            self._sync(interaction.guild.id)
             await interaction.response.send_message("▶️ Resumed!")
         else:
             await interaction.response.send_message("❌ Music is not paused!")
@@ -328,6 +355,8 @@ class Music(commands.Cog):
                 player.queue.clear()
                 player.current = None
                 player.last_announced_id = None
+                player.mark_stopped()
+            self._sync(interaction.guild.id)
             await voice_client.disconnect()
             await interaction.response.send_message("⏹️ Stopped and disconnected!")
         else:
@@ -378,6 +407,7 @@ class Music(commands.Cog):
         cleared_count = len(player.queue)
         player.queue.clear()
         logger.info(f"Cleared {cleared_count} songs from queue in guild {interaction.guild.id}")
+        self._sync(interaction.guild.id)
         await interaction.response.send_message(f"🗑️ Cleared **{cleared_count}** song(s) from the queue!")
 
     @commands.command(name="clear", aliases=["c"])
@@ -389,6 +419,7 @@ class Music(commands.Cog):
         cleared_count = len(player.queue)
         player.queue.clear()
         logger.info(f"Cleared {cleared_count} songs from queue in guild {ctx.guild.id}")
+        self._sync(ctx.guild.id)
         await ctx.send(f"🗑️ Cleared **{cleared_count}** song(s) from the queue!")
 
     @commands.command(name="remove", aliases=["rm"])
@@ -399,6 +430,7 @@ class Music(commands.Cog):
             return
         removed = player.queue.pop(position - 1)
         logger.info(f"Removed song from position {position}: {removed.title}")
+        self._sync(ctx.guild.id)
         await ctx.send(f"🗑️ Removed: **{removed.title}**")
 
     @commands.command(name="mix")
@@ -429,6 +461,7 @@ class Music(commands.Cog):
         player.current = None
         player.loop_mode = LoopMode.QUEUE
         logger.info(f"Mix started for guild {ctx.guild.id}: {len(tracks)} cached song(s)")
+        self._sync(ctx.guild.id)
 
         await ctx.send(f"🔀 Mixing **{len(tracks)}** cached song(s) on shuffle-loop!")
 
@@ -442,6 +475,7 @@ class Music(commands.Cog):
             await interaction.response.send_message("❌ Not enough songs in queue to shuffle!")
             return
         player.shuffle()
+        self._sync(interaction.guild.id)
         await interaction.response.send_message(f"🔀 Shuffled **{len(player.queue)}** songs!")
 
     # ---------- playback settings ----------
@@ -455,12 +489,14 @@ class Music(commands.Cog):
     async def loop_cmd(self, interaction: discord.Interaction, mode: app_commands.Choice[str]):
         player = self._get_player(interaction.guild.id)
         player.loop_mode = LoopMode(mode.value)
+        self._sync(interaction.guild.id)
         await interaction.response.send_message(f"🔁 Loop mode: **{mode.value}**")
 
     @app_commands.command(name="autoplay", description="Toggle autoplay of related songs when the queue is empty")
     async def autoplay(self, interaction: discord.Interaction):
         player = self._get_player(interaction.guild.id)
         player.autoplay = not player.autoplay
+        self._sync(interaction.guild.id)
         await interaction.response.send_message(f"♾️ Autoplay: **{'ON' if player.autoplay else 'OFF'}**")
 
     @app_commands.command(name="volume", description="Set playback volume (0-200%)")
@@ -470,6 +506,7 @@ class Music(commands.Cog):
         player.volume = percent / 100
         if player.voice_client and player.voice_client.source:
             player.voice_client.source.volume = player.volume
+        self._sync(interaction.guild.id)
         await interaction.response.send_message(f"🔊 Volume set to **{percent}%**")
 
     # ---------- diagnostics ----------

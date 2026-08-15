@@ -11,8 +11,10 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import discord  # noqa: E402
 
+from cogs.music_system import bridge as bridge_module  # noqa: E402
 from cogs.music_system import cog as cog_module  # noqa: E402
 from cogs.music_system.player import Track  # noqa: E402
+from cogs.music_system.shared_db import SharedDB  # noqa: E402
 
 
 def make_track(i: int = 1, **overrides) -> Track:
@@ -86,9 +88,10 @@ class FakeVoiceClient:
 
 
 class FakeVoiceChannel:
-    def __init__(self, name='General', guild=None):
+    def __init__(self, name='General', guild=None, channel_id=555):
         self.name = name
         self.guild = guild
+        self.id = channel_id
 
     async def connect(self):
         vc = FakeVoiceClient(guild=self.guild, channel=self)
@@ -183,8 +186,18 @@ def fake_youtube():
 
 
 @pytest.fixture
-def music_cog(monkeypatch, fake_youtube):
+def shared_db(tmp_path):
+    """Isolated copy of the control-plane database shared with the music API."""
+    db = SharedDB(str(tmp_path / 'tracks.db'))
+    yield db
+    db.close()
+
+
+@pytest.fixture
+def music_cog(monkeypatch, fake_youtube, shared_db):
     monkeypatch.setattr(cog_module, 'YTDLPClient', lambda: fake_youtube)
+    # Keep the bridge off the real downloads/tracks.db during tests.
+    monkeypatch.setattr(bridge_module, 'get_shared_db', lambda: shared_db)
     monkeypatch.setattr(discord, 'FFmpegPCMAudio', lambda path, **kw: SimpleNamespace(path=path), raising=True)
 
     def fake_transformer(source, volume=1.0):

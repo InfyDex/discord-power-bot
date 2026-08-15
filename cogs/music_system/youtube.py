@@ -14,10 +14,13 @@ from typing import Optional
 import yt_dlp
 
 from .db import TrackDB
+from .shared_db import get_shared_db
 
 logger = logging.getLogger('discord.music')
 
 DOWNLOAD_DIR = 'downloads'
+# How often to re-check a track another process (the music API) is downloading.
+LOCK_POLL_SECONDS = 2
 PLAYER_CLIENTS = 'ios,android'
 BOT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -133,6 +136,9 @@ class YTDLPClient:
         self._cache: OrderedDict[str, str] = OrderedDict()
         os.makedirs(DOWNLOAD_DIR, exist_ok=True)
         self.db = TrackDB()
+        # Same sqlite file as the download registry: used here for the
+        # cross-process download lock the music API also honours.
+        self.shared = get_shared_db()
 
     @staticmethod
     def _to_track_dict(entry: dict) -> dict:
@@ -244,6 +250,40 @@ class YTDLPClient:
             return None
         return matches[0]
 
+    def _cached_path(self, track: dict) -> Optional[str]:
+        """Registry hit whose file is still on disk, or None (clearing stale rows)."""
+        row = self.db.get(track['id'])
+        if not row:
+            return None
+        if os.path.exists(row['file_path']):
+            self.db.record_play(track['id'])
+            return row['file_path']
+
+        logger.warning(f"DB row for {track['id']} points at missing file, re-downloading")
+        self.db.delete(track['id'])
+        return None
+
+    async def _download_exclusive(self, track: dict) -> Optional[str]:
+        """Download under the shared lock. When the music API is already fetching
+        this video, wait for its result instead of running a second yt-dlp onto
+        the same output path.
+        """
+        video_id = track['id']
+        while True:
+            if self.shared.acquire_download_lock(video_id):
+                try:
+                    return await self._download(track)
+                finally:
+                    self.shared.release_download_lock(video_id)
+
+            logger.info(f"Another process is downloading {video_id}, waiting for it")
+            await asyncio.sleep(LOCK_POLL_SECONDS)
+
+            path = self._cached_path(track)
+            if path:
+                logger.info(f"Cache hit (downloaded by another process) for '{track['title']}' -> {path}")
+                return path
+
     async def get_audio_file(self, track: dict) -> Optional[str]:
         """Cached download: checks in-memory cache, then the sqlite registry (survives restarts),
         then downloads. New downloads are recorded in the DB, which drives LRU eviction so the
@@ -271,7 +311,7 @@ class YTDLPClient:
             self.db.delete(video_id)
 
         logger.info(f"Cache miss for '{track['title']}' — downloading...")
-        path = await self._download(track)
+        path = await self._download_exclusive(track)
         if not path:
             return None
 
