@@ -1,24 +1,5 @@
 """
 Discord voice-receive sink that transcribes speech and dispatches music commands.
-
-How it works
-------------
-1. ``MusicCommandSink.write()`` is called by discord.py for every 20-ms Opus
-   frame it decodes from the voice channel — one per speaking user.
-2. Audio is buffered per-user in memory.
-3. A background asyncio task (``_silence_checker``) polls every 400 ms.
-   When a user has been silent for ≥ ``SILENCE_S`` seconds **and** their buffer
-   is long enough, the buffer is flushed and passed to the STT backend.
-4. The transcript is forwarded to ``nlp.parse_command``.
-5. If a command is found, ``on_command(user_id, ParsedCommand)`` is awaited.
-
-Usage (inside the Music cog)
------------------------------
-    sink = MusicCommandSink(stt_backend, command_handler, bot.loop)
-    voice_client.start_recording(sink, after_callback)
-    sink.start()               # begins the silence-checker task
-    ...
-    voice_client.stop_recording()   # calls sink.cleanup() automatically
 """
 from __future__ import annotations
 
@@ -30,17 +11,23 @@ from typing import Awaitable, Callable, Optional
 
 import discord
 
+# Support both py-cord (discord.sinks.Sink) and discord-ext-voice-receive (voice_recv.AudioSink)
+_BaseSink = object
 try:
     import discord.sinks
     _BaseSink = discord.sinks.Sink
 except (ImportError, AttributeError):
-    # Fallback base class if discord.sinks is not available in the installed discord.py variant
-    class _BaseSink:  # type: ignore[no-redef]
-        def __init__(self, *args, **kwargs):
-            pass
+    pass
 
-        def cleanup(self):
-            pass
+try:
+    import discord.ext.voice_recv as voice_recv
+    _VRBase = voice_recv.AudioSink
+except (ImportError, AttributeError):
+    _VRBase = object
+
+# Create combined base class for type compatibility
+class _CombinedBaseSink(_BaseSink, _VRBase):  # type: ignore[misc]
+    pass
 
 from .nlp import ParsedCommand, parse_command
 from .stt import STTBackend
@@ -68,7 +55,7 @@ MAX_BUFFER_BYTES: int = 48_000 * 2 * 2 * 50  # ~9.6 MB (~50 s)
 CommandCallback = Callable[[int, ParsedCommand], Awaitable[None]]
 
 
-class MusicCommandSink(_BaseSink):
+class MusicCommandSink(_CombinedBaseSink):
     """
     Custom Sink that buffers decoded PCM audio per-user, detects silence,
     transcribes the utterance, and dispatches music commands.
@@ -94,25 +81,45 @@ class MusicCommandSink(_BaseSink):
         self._processing: set[int] = set()
         # Handle to the background silence-checker task.
         self._checker: Optional[asyncio.Task] = None
+        logger.info("MusicCommandSink initialized.")
 
-    # ── discord.py Sink interface ─────────────────────────────────────────────
+    def wants_opus(self) -> bool:
+        """discord-ext-voice-receive interface: request decoded PCM (not Opus)."""
+        return False
 
-    def write(self, data, user: Optional[discord.Member]) -> None:  # type: ignore[override]
-        """Called (from the audio-receive thread) for every 20 ms audio frame."""
-        if user is None:
+    # ── discord.py / py-cord / voice_recv Sink interface ─────────────────────
+
+    def write(self, a=None, b=None) -> None:  # type: ignore[override]
+        """Called (from audio-receive thread) for every 20 ms audio frame.
+        
+        Handles both write(data, user) [py-cord] and write(user, data) [voice_recv].
+        """
+        user = None
+        data = None
+
+        if isinstance(a, (discord.Member, discord.User)):
+            user, data = a, b
+        elif isinstance(b, (discord.Member, discord.User)):
+            user, data = b, a
+        elif hasattr(a, "pcm") or hasattr(a, "file") or hasattr(a, "data") or isinstance(a, (bytes, bytearray)):
+            data, user = a, b
+        else:
+            user, data = b, a
+
+        if user is None or data is None:
             return
 
-        # Extract raw PCM bytes — handle different discord.py Sink API shapes.
-        if hasattr(data, "file"):
-            # discord.py ≥ 2.x: AudioData.file is a BytesIO of decoded PCM.
+        # Extract raw PCM bytes across various audio data formats
+        pcm: Optional[bytes] = None
+        if hasattr(data, "pcm") and data.pcm:
+            pcm = bytes(data.pcm)
+        elif hasattr(data, "file"):
             pcm = data.file.read()
             data.file.seek(0)
         elif hasattr(data, "data"):
             pcm = bytes(data.data)
         elif isinstance(data, (bytes, bytearray)):
             pcm = bytes(data)
-        else:
-            return
 
         if not pcm:
             return
@@ -121,18 +128,19 @@ class MusicCommandSink(_BaseSink):
         with self._lock:
             if uid not in self._buffers:
                 self._buffers[uid] = bytearray()
+                logger.info("🎙️ [Voice Listener] Receiving audio packet from user %s (ID: %d)", getattr(user, 'display_name', user), uid)
+            
             buf = self._buffers[uid]
             buf.extend(pcm)
             self._last_audio[uid] = time.monotonic()
 
             # Bound buffer size to prevent memory leaks from constant noise
             if len(buf) > MAX_BUFFER_BYTES:
-                # Keep the last 10 seconds of PCM audio and discard older bytes
                 keep_bytes = 48_000 * 2 * 2 * 10
                 self._buffers[uid] = bytearray(buf[-keep_bytes:])
 
     def cleanup(self) -> None:
-        """Called automatically by discord.py when ``stop_recording()`` fires."""
+        """Called automatically when recording/listening stops."""
         if self._checker and not self._checker.done():
             self._checker.cancel()
         with self._lock:
@@ -147,7 +155,7 @@ class MusicCommandSink(_BaseSink):
         """Schedule the background silence-checker coroutine on the event loop."""
         if self._checker is None or self._checker.done():
             self._checker = self._loop.create_task(self._silence_checker())
-            logger.info("Voice command listener started (silence=%.1fs).", SILENCE_S)
+            logger.info("Voice command listener background loop started (silence threshold=%.1fs).", SILENCE_S)
 
     # ── Internal ──────────────────────────────────────────────────────────────
 
@@ -178,11 +186,15 @@ class MusicCommandSink(_BaseSink):
                 for uid, pcm in users_to_flush:
                     if len(pcm) < MIN_AUDIO_BYTES:
                         logger.debug(
-                            "Audio from user %d too short (%d bytes) — discarding.",
+                            "🎙️ Audio from user %d too short (%d bytes) — discarding.",
                             uid, len(pcm),
                         )
                         continue
 
+                    logger.info(
+                        "🎙️ User %d was silent for ≥%.1fs — sending %d bytes of PCM to STT engine...",
+                        uid, SILENCE_S, len(pcm)
+                    )
                     with self._lock:
                         self._processing.add(uid)
                     self._loop.create_task(self._process(uid, pcm))
@@ -197,19 +209,21 @@ class MusicCommandSink(_BaseSink):
         """Transcribe a PCM buffer and dispatch any recognised command."""
         try:
             text = await self.stt.transcribe(pcm)
-            logger.info("[Voice STT] User %d: %r", uid, text)
+            logger.info("🎙️ [Voice STT Result] User %d said: %r", uid, text)
             if text:
                 cmd = parse_command(text)
                 if cmd:
                     logger.info(
-                        "[Voice] Command detected — %r args=%r", cmd.name, cmd.args
+                        "🎙️ [Voice Command Matched] User %d → command=%r args=%r",
+                        uid, cmd.name, cmd.args
                     )
                     await self.on_command(uid, cmd)
                 else:
-                    logger.debug("[Voice] No command matched transcript: %r", text)
+                    logger.info("🎙️ [Voice Command No Match] Transcript did not match any music command: %r", text)
         except Exception:
-            logger.exception("[Voice] Error processing audio for user %d.", uid)
+            logger.exception("🎙️ [Voice Error] Error processing audio for user %d.", uid)
         finally:
             with self._lock:
                 self._processing.discard(uid)
+
 

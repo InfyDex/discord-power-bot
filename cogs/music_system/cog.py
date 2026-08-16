@@ -126,9 +126,26 @@ class Music(commands.Cog):
 
     async def _connect(self, guild: discord.Guild, channel: discord.VoiceChannel) -> discord.VoiceClient:
         voice_client = discord.utils.get(self.bot.voice_clients, guild=guild)
+
+        # Check if discord-ext-voice-receive is installed
+        recv_cls = None
+        try:
+            import discord.ext.voice_recv as voice_recv
+            recv_cls = voice_recv.VoiceRecvClient
+        except ImportError:
+            pass
+
         if not voice_client:
-            voice_client = await channel.connect()
-            logger.info(f"Connected to voice channel: {channel.name}")
+            if recv_cls:
+                try:
+                    voice_client = await channel.connect(cls=recv_cls)
+                    logger.info(f"Connected to voice channel using VoiceRecvClient: {channel.name}")
+                except Exception as exc:
+                    logger.warning(f"Could not connect with VoiceRecvClient ({exc}) — falling back to standard connect()")
+                    voice_client = await channel.connect()
+            else:
+                voice_client = await channel.connect()
+                logger.info(f"Connected to voice channel: {channel.name}")
         elif voice_client.channel != channel:
             await voice_client.move_to(channel)
             logger.info(f"Moved to voice channel: {channel.name}")
@@ -256,10 +273,34 @@ class Music(commands.Cog):
                 s.cleanup()
             logger.info('Auto-recording finished for guild %d.', guild_id)
 
+        vc_type = type(voice_client).__name__
+        attached = False
+
         if hasattr(voice_client, 'start_recording'):
-            voice_client.start_recording(sink, _done)
+            try:
+                voice_client.start_recording(sink, _done)
+                attached = True
+                logger.info('🎙️ Voice receive attached via start_recording() on %s (guild %d).', vc_type, guild_id)
+            except Exception as exc:
+                logger.error('Failed to attach sink via start_recording(): %s', exc)
+
+        if not attached and hasattr(voice_client, 'listen'):
+            try:
+                voice_client.listen(sink)
+                attached = True
+                logger.info('🎙️ Voice receive attached via listen() on %s (guild %d).', vc_type, guild_id)
+            except Exception as exc:
+                logger.error('Failed to attach sink via listen(): %s', exc)
+
+        if not attached:
+            logger.warning(
+                '⚠️ Voice client (%s) has neither start_recording nor listen method! '
+                'Voice commands will NOT receive audio packets. Install discord-ext-voice-receive or use py-cord.',
+                vc_type
+            )
+
         sink.start()
-        logger.info('Auto-started voice listening in guild %d.', guild_id)
+        logger.info('Auto-started voice listening loop in guild %d.', guild_id)
 
     async def _handle_play(self, responder: _Responder, query: str):
         if not responder.author.voice:
