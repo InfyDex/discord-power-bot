@@ -3,13 +3,17 @@ import asyncio
 import logging
 import os
 import random
+import re
 
 import discord
 from discord import app_commands
 from discord.ext import commands
 
+from .nlp import has_wake_word, parse_command
 from .player import GuildPlayer, LoopMode, Track
+from .stt import STTBackend, create_stt_backend
 from .views import SearchView
+from .voice_listener import MusicCommandSink
 from .youtube import YTDLPClient
 
 logger = logging.getLogger('discord.music')
@@ -51,11 +55,49 @@ class _Responder:
         return self._obj.channel
 
 
+class _ChannelResponder:
+    """Responder backed by an explicit TextChannel + Member pair.
+
+    Used for NLP (natural-language text) and voice commands where there is no
+    real ``commands.Context`` or ``discord.Interaction`` available.
+    """
+
+    def __init__(self, channel: discord.TextChannel, member: discord.Member) -> None:
+        self._channel = channel
+        self._member = member
+        self._message = None
+
+    async def send(self, content=None, embed=None):
+        self._message = await self._channel.send(content=content, embed=embed)
+
+    async def edit(self, content=None, embed=None):
+        if self._message:
+            await self._message.edit(content=content, embed=embed)
+        else:
+            await self.send(content=content, embed=embed)
+
+    @property
+    def author(self):
+        return self._member
+
+    @property
+    def guild(self):
+        return self._member.guild
+
+    @property
+    def channel(self):
+        return self._channel
+
+
 class Music(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.youtube = YTDLPClient()
         self.players: dict[int, GuildPlayer] = {}
+        # STT backend — model loads lazily on first voice transcription.
+        self.stt: STTBackend = create_stt_backend()
+        # Active voice-command sinks, keyed by guild_id.
+        self.sinks: dict[int, MusicCommandSink] = {}
         logger.info("Music cog initialized")
 
     # ---------- shared helpers ----------
@@ -192,6 +234,30 @@ class Music(commands.Cog):
         logger.info(f"Playing: '{track.title}' from {file_path}")
         await self._announce_now_playing(player, track)
 
+    async def _ensure_listening(self, voice_client: discord.VoiceClient, guild_id: int) -> None:
+        """Auto-start voice-command recording whenever the bot joins a voice channel.
+
+        Called every time the bot connects or plays something — is a no-op if
+        recording is already active for this guild.
+        """
+        if guild_id in self.sinks:
+            return  # already recording
+
+        sink = MusicCommandSink(
+            stt=self.stt,
+            on_command=lambda uid, cmd: self._voice_command_handler(guild_id, uid, cmd),
+            loop=self.bot.loop,
+        )
+        self.sinks[guild_id] = sink
+
+        async def _done(snk, *_args):
+            self.sinks.pop(guild_id, None)
+            logger.info('Auto-recording finished for guild %d.', guild_id)
+
+        voice_client.start_recording(sink, _done)
+        sink.start()
+        logger.info('Auto-started voice listening in guild %d.', guild_id)
+
     async def _handle_play(self, responder: _Responder, query: str):
         if not responder.author.voice:
             await responder.send("❌ You need to be in a voice channel!")
@@ -207,6 +273,9 @@ class Music(commands.Cog):
 
         player = self._get_player(responder.guild.id, voice_client)
         player.text_channel = responder.channel
+
+        # Auto-start voice listening whenever bot joins voice.
+        await self._ensure_listening(voice_client, responder.guild.id)
 
         await responder.send(f"🔍 Searching for: **{query}**...")
         tracks = await self._resolve_query(query)
@@ -259,6 +328,9 @@ class Music(commands.Cog):
             voice_client = await self._connect(select_interaction.guild, voice_channel)
             player = self._get_player(select_interaction.guild.id, voice_client)
             player.text_channel = select_interaction.channel
+
+            # Auto-start voice listening.
+            await self._ensure_listening(voice_client, select_interaction.guild.id)
 
             track = Track.from_dict(data)
             player.add(track)
@@ -430,6 +502,9 @@ class Music(commands.Cog):
         player.loop_mode = LoopMode.QUEUE
         logger.info(f"Mix started for guild {ctx.guild.id}: {len(tracks)} cached song(s)")
 
+        # Auto-start voice listening.
+        await self._ensure_listening(voice_client, ctx.guild.id)
+
         await ctx.send(f"🔀 Mixing **{len(tracks)}** cached song(s) on shuffle-loop!")
 
         if not voice_client.is_playing() and not voice_client.is_paused():
@@ -511,6 +586,299 @@ class Music(commands.Cog):
         embed = discord.Embed(title="🎵 Music System Test", description="\n".join(results), color=discord.Color.blue())
         await ctx.send(embed=embed)
         logger.info(f"Test results: {results}")
+
+
+    async def cog_unload(self) -> None:
+        """Stop all active voice sinks when the cog is unloaded."""
+        for guild_id, sink in list(self.sinks.items()):
+            guild = self.bot.get_guild(guild_id)
+            if guild:
+                vc = discord.utils.get(self.bot.voice_clients, guild=guild)
+                if vc and hasattr(vc, 'stop_recording'):
+                    try:
+                        vc.stop_recording()
+                    except Exception:
+                        pass
+            sink.cleanup()
+        self.sinks.clear()
+        logger.info("Music cog unloaded — all voice sinks stopped.")
+
+    # ---------- NLP / voice command dispatcher ----------
+
+    async def _dispatch_nlp_command(
+        self,
+        guild: discord.Guild,
+        member: discord.Member,
+        text_channel,
+        cmd,
+        source: str = 'text',
+    ) -> None:
+        """Execute a parsed NLP command on behalf of *member* in *guild*."""
+        tag = '🎙️ *(voice)*' if source == 'voice' else '💬 *(chat)*'
+        player = self.players.get(guild.id)
+        vc = discord.utils.get(self.bot.voice_clients, guild=guild)
+
+        async def say(content=None, embed=None):
+            try:
+                await text_channel.send(content=content, embed=embed)
+            except discord.HTTPException as exc:
+                logger.warning('Could not send NLP response: %s', exc)
+
+        if cmd.name == 'skip':
+            if vc and (vc.is_playing() or vc.is_paused()):
+                vc.stop()
+                logger.info('NLP skip in guild %d (%s)', guild.id, source)
+                await say(f'⏭️ Skipped! {tag}')
+            else:
+                await say(f'❌ Nothing is playing! {tag}')
+
+        elif cmd.name == 'pause':
+            if vc and vc.is_playing():
+                vc.pause()
+                await say(f'⏸️ Paused! {tag}')
+            elif vc and vc.is_paused():
+                await say(f'⏸️ Already paused! {tag}')
+            else:
+                await say(f'❌ Nothing is playing! {tag}')
+
+        elif cmd.name == 'resume':
+            if vc and vc.is_paused():
+                vc.resume()
+                await say(f'▶️ Resumed! {tag}')
+            else:
+                await say(f'❌ Music is not paused! {tag}')
+
+        elif cmd.name == 'stop':
+            if vc:
+                if player:
+                    player.queue.clear()
+                    player.current = None
+                    player.last_announced_id = None
+                if guild.id in self.sinks:
+                    try:
+                        vc.stop_recording()
+                    except Exception:
+                        pass
+                    self.sinks.pop(guild.id, None)
+                await vc.disconnect()
+                await say(f'⏹️ Stopped and disconnected! {tag}')
+            else:
+                await say(f'❌ Not connected to voice! {tag}')
+
+        elif cmd.name == 'nowplaying':
+            if player and player.current:
+                await say(embed=self._now_playing_embed(player.current))
+            else:
+                await say(f'❌ Nothing is playing right now! {tag}')
+
+        elif cmd.name == 'volume':
+            try:
+                pct = max(0, min(200, int(cmd.args)))
+                if player:
+                    player.volume = pct / 100
+                    if vc and vc.source:
+                        vc.source.volume = player.volume
+                await say(f'🔊 Volume set to **{pct}%** {tag}')
+            except (ValueError, AttributeError):
+                wake = os.getenv('VOICE_WAKE_WORD', 'friday')
+                await say(f'❌ Say something like **{wake} volume 80** for 80%. {tag}')
+
+        elif cmd.name == 'shuffle':
+            if player and len(player.queue) >= 2:
+                player.shuffle()
+                await say(f'🔀 Shuffled **{len(player.queue)}** songs! {tag}')
+            else:
+                await say(f'❌ Not enough songs in queue to shuffle! {tag}')
+
+        elif cmd.name == 'loop':
+            if player:
+                modes = [LoopMode.OFF, LoopMode.TRACK, LoopMode.QUEUE]
+                idx = (modes.index(player.loop_mode) + 1) % len(modes)
+                player.loop_mode = modes[idx]
+                await say(f'🔁 Loop mode: **{player.loop_mode.value}** {tag}')
+            else:
+                await say(f'❌ No active player! {tag}')
+
+        elif cmd.name == 'play':
+            wake = os.getenv('VOICE_WAKE_WORD', 'friday')
+            if not cmd.args:
+                await say(f'❌ What should I play? Try: **{wake} play lofi music** {tag}')
+                return
+            if not member.voice:
+                await say(f'❌ You need to be in a voice channel to play music! {tag}')
+                return
+            responder = _ChannelResponder(text_channel, member)
+            await self._handle_play(responder, cmd.args)
+
+    async def _voice_command_handler(
+        self,
+        guild_id: int,
+        user_id: int,
+        cmd,
+    ) -> None:
+        """Callback wired into MusicCommandSink — resolves objects and dispatches."""
+        guild = self.bot.get_guild(guild_id)
+        if not guild:
+            return
+        member = guild.get_member(user_id)
+        if not member:
+            return
+        player = self.players.get(guild_id)
+        text_channel = player.text_channel if player else None
+        if not text_channel:
+            logger.warning(
+                'No text channel set for guild %d — cannot respond to voice command.',
+                guild_id,
+            )
+            return
+        await self._dispatch_nlp_command(guild, member, text_channel, cmd, source='voice')
+
+    # ---------- listen / stoplisten / vcmds ----------
+
+    @commands.command(name='listen', aliases=['startlisten'])
+    async def listen_cmd(self, ctx):
+        """Show voice command help. Listening starts automatically when the bot joins voice."""
+        wake = os.getenv('VOICE_WAKE_WORD', 'friday')
+        listening = ctx.guild.id in self.sinks
+        status_line = (
+            '🟢 **Active** — I\'m already listening in this server.'
+            if listening else
+            '🟡 **Not yet active** — queue a song first and I\'ll start listening automatically.'
+        )
+        embed = discord.Embed(
+            title='🎙️ Voice Commands',
+            description=(
+                f'{status_line}\n\n'
+                f'Voice listening starts **automatically** the moment I join a voice channel.\n'
+                f'No command needed — just say the wake word **"{wake}"** and a command!\n\n'
+                f'**Examples:**\n'
+                f'• `{wake} skip` — skip current song\n'
+                f'• `{wake} pause` / `{wake} resume`\n'
+                f'• `{wake} play lofi music` — queue a song\n'
+                f'• `{wake} stop` — stop & disconnect\n'
+                f'• `{wake} volume 80` — set volume to 80%\n'
+                f'• `{wake} shuffle` / `{wake} loop`\n'
+                f'• `{wake} what\'s playing` — show current song\n\n'
+                f'You can also **type** these in chat — no prefix needed!\n'
+                f'Run `!stoplisten` to temporarily disable voice commands.'
+            ),
+            color=discord.Color.green() if listening else discord.Color.orange(),
+        )
+        await ctx.send(embed=embed)
+
+    @commands.command(name='stoplisten', aliases=['sl'])
+    async def stoplisten_cmd(self, ctx):
+        """Stop listening for voice commands in this server."""
+        if ctx.guild.id not in self.sinks:
+            await ctx.send('❌ I\'m not currently listening for voice commands here.')
+            return
+        voice_client = discord.utils.get(self.bot.voice_clients, guild=ctx.guild)
+        if voice_client and hasattr(voice_client, 'stop_recording'):
+            try:
+                voice_client.stop_recording()
+            except Exception:
+                pass
+        self.sinks.pop(ctx.guild.id, None)
+        await ctx.send('🔇 Voice commands disabled.')
+        logger.info('Voice command listening stopped in guild %d.', ctx.guild.id)
+
+    @commands.command(name='vcmds')
+    async def voice_commands_list(self, ctx):
+        """Show all available voice and natural-language text commands."""
+        wake = os.getenv('VOICE_WAKE_WORD', 'friday')
+        listening = ctx.guild.id in self.sinks
+        status = '🟢 Active' if listening else '🟡 Starts automatically when bot joins voice'
+        embed = discord.Embed(
+            title='🎙️ Voice & Natural-Language Commands',
+            color=discord.Color.blurple(),
+        )
+        embed.add_field(name='Status', value=status, inline=False)
+        embed.add_field(
+            name=f'Say or type (wake word: **"{wake}"**)',
+            value=(
+                f'`{wake} skip` — skip current song\n'
+                f'`{wake} pause` — pause playback\n'
+                f'`{wake} resume` — resume playback\n'
+                f'`{wake} stop` — stop & disconnect\n'
+                f'`{wake} play <song>` — queue a song\n'
+                f'`{wake} volume <0-200>` — set volume\n'
+                f'`{wake} shuffle` — shuffle the queue\n'
+                f'`{wake} loop` — cycle loop mode\n'
+                f'`{wake} what\'s playing` — show current song\n'
+            ),
+            inline=False,
+        )
+        embed.set_footer(text='Typing commands works even without !listen active.')
+        await ctx.send(embed=embed)
+
+    # ---------- Event listeners ----------
+
+    @commands.Cog.listener()
+    async def on_message(self, message: discord.Message) -> None:
+        """Intercept natural-language music commands typed in chat.
+
+        Triggers when a message starts with the wake word (e.g. "friday skip")
+        or when the bot is @mentioned (e.g. "@Bot skip the song").
+        Regular prefix commands (!skip, /skip) are unaffected.
+        """
+        if message.author.bot or message.guild is None:
+            return
+
+        content = message.content.strip()
+        if not content:
+            return
+
+        # Don't intercept messages that already begin with the command prefix.
+        prefix = self.bot.command_prefix
+        if isinstance(prefix, str) and content.startswith(prefix):
+            return
+
+        wake = os.getenv('VOICE_WAKE_WORD', 'friday').lower()
+        bot_mentioned = self.bot.user in message.mentions
+        starts_with_wake = (
+            content.lower().startswith(wake + ' ')
+            or content.lower() == wake
+        )
+
+        if not (bot_mentioned or starts_with_wake):
+            return
+
+        # Strip @mention so the NLP parser sees clean text.
+        if bot_mentioned:
+            content = re.sub(r'<@!?\d+>', '', content).strip()
+
+        cmd = parse_command(content)
+        if not cmd:
+            return
+
+        logger.info(
+            '[NLP Text] %s: %r → %s(args=%r)',
+            message.author, content, cmd.name, cmd.args,
+        )
+        await self._dispatch_nlp_command(
+            guild=message.guild,
+            member=message.author,
+            text_channel=message.channel,
+            cmd=cmd,
+            source='text',
+        )
+
+    @commands.Cog.listener()
+    async def on_voice_state_update(
+        self,
+        member: discord.Member,
+        before: discord.VoiceState,
+        after: discord.VoiceState,
+    ) -> None:
+        """Clean up the voice sink when the bot itself leaves a voice channel."""
+        if member.id != self.bot.user.id:
+            return
+        # Bot moved from a channel to None (fully disconnected).
+        if before.channel is not None and after.channel is None:
+            guild_id = member.guild.id
+            if guild_id in self.sinks:
+                self.sinks.pop(guild_id, None)
+                logger.info('Bot left voice in guild %d — sink removed.', guild_id)
 
 
 async def setup(bot):
