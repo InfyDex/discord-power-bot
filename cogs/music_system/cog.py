@@ -245,16 +245,19 @@ class Music(commands.Cog):
 
         sink = MusicCommandSink(
             stt=self.stt,
-            on_command=lambda uid, cmd: self._voice_command_handler(guild_id, uid, cmd),
+            on_command=lambda uid, cmd, g_id=guild_id: self._voice_command_handler(g_id, uid, cmd),
             loop=self.bot.loop,
         )
         self.sinks[guild_id] = sink
 
         async def _done(snk, *_args):
-            self.sinks.pop(guild_id, None)
+            s = self.sinks.pop(guild_id, None)
+            if s:
+                s.cleanup()
             logger.info('Auto-recording finished for guild %d.', guild_id)
 
-        voice_client.start_recording(sink, _done)
+        if hasattr(voice_client, 'start_recording'):
+            voice_client.start_recording(sink, _done)
         sink.start()
         logger.info('Auto-started voice listening in guild %d.', guild_id)
 
@@ -679,7 +682,7 @@ class Music(commands.Cog):
                     if vc and vc.source:
                         vc.source.volume = player.volume
                 await say(f'🔊 Volume set to **{pct}%** {tag}')
-            except (ValueError, AttributeError):
+            except (ValueError, TypeError):
                 wake = os.getenv('VOICE_WAKE_WORD', 'friday')
                 await say(f'❌ Say something like **{wake} volume 80** for 80%. {tag}')
 
@@ -778,7 +781,9 @@ class Music(commands.Cog):
                 voice_client.stop_recording()
             except Exception:
                 pass
-        self.sinks.pop(ctx.guild.id, None)
+        sink = self.sinks.pop(ctx.guild.id, None)
+        if sink:
+            sink.cleanup()
         await ctx.send('🔇 Voice commands disabled.')
         logger.info('Voice command listening stopped in guild %d.', ctx.guild.id)
 
@@ -828,9 +833,13 @@ class Music(commands.Cog):
         if not content:
             return
 
-        # Don't intercept messages that already begin with the command prefix.
-        prefix = self.bot.command_prefix
-        if isinstance(prefix, str) and content.startswith(prefix):
+        # Robust prefix check supporting str, tuple, list, or callable prefixes
+        prefixes = self.bot.command_prefix
+        if isinstance(prefixes, str):
+            prefixes = (prefixes,)
+        elif isinstance(prefixes, (list, set)):
+            prefixes = tuple(prefixes)
+        if isinstance(prefixes, tuple) and content.startswith(prefixes):
             return
 
         wake = os.getenv('VOICE_WAKE_WORD', 'friday').lower()
@@ -877,8 +886,10 @@ class Music(commands.Cog):
         if before.channel is not None and after.channel is None:
             guild_id = member.guild.id
             if guild_id in self.sinks:
-                self.sinks.pop(guild_id, None)
-                logger.info('Bot left voice in guild %d — sink removed.', guild_id)
+                sink = self.sinks.pop(guild_id, None)
+                if sink:
+                    sink.cleanup()
+                logger.info('Bot left voice in guild %d — sink removed & cleaned up.', guild_id)
 
 
 async def setup(bot):

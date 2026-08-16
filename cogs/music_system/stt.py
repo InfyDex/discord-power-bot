@@ -80,7 +80,7 @@ class WhisperLocalSTT:
 
     def _transcribe_sync(self, pcm_bytes: bytes) -> str:
         model = self._load()
-        # Write PCM to a temporary WAV file (Whisper reads files, not byte streams).
+        # Create temp file name and close handle immediately so wave.open / whisper can write/read on Windows.
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as fh:
             tmp = fh.name
         try:
@@ -112,16 +112,21 @@ class WhisperAPISTT:
 
     def __init__(self, api_key: str) -> None:
         self._api_key = api_key
+        self._client = None
+
+    def _get_client(self):
+        if self._client is None:
+            try:
+                import openai  # type: ignore[import]
+            except ImportError as exc:
+                raise RuntimeError(
+                    "openai package not installed. Run: pip install openai"
+                ) from exc
+            self._client = openai.AsyncOpenAI(api_key=self._api_key)
+        return self._client
 
     async def transcribe(self, pcm_bytes: bytes) -> str:
-        try:
-            import openai  # type: ignore[import]
-        except ImportError as exc:
-            raise RuntimeError(
-                "openai package not installed. Run: pip install openai"
-            ) from exc
-
-        client = openai.AsyncOpenAI(api_key=self._api_key)
+        client = self._get_client()
 
         # Convert raw PCM → WAV in memory (API expects a real audio file).
         buf = io.BytesIO()

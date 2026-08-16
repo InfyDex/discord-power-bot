@@ -36,7 +36,7 @@ _RULES: list[tuple[re.Pattern, str]] = [
     (re.compile(r"\bskip\b(?:\s+(?:this|the)?\s*song)?", re.I), "skip"),
     (re.compile(r"\bpause\b", re.I), "pause"),
     (re.compile(r"\b(?:resume|unpause|continue\s+(?:the\s+)?music)\b", re.I), "resume"),
-    (re.compile(r"\b(?:stop|disconnect|leave|bye|quit)\b", re.I), "stop"),
+    (re.compile(r"\b(?:stop(?:\s+(?:the\s+)?music)?|disconnect|leave\s+(?:vc|voice|channel))\b", re.I), "stop"),
     (re.compile(
         r"\b(?:now\s*playing|what(?:'s|s)?\s+playing|what\s+song|current\s+song|what\s+is\s+this)\b",
         re.I,
@@ -54,7 +54,7 @@ def _wake_word() -> str:
 
 
 def strip_wake_word(text: str) -> str:
-    """Remove the leading wake word (e.g. 'bot') and punctuation from *text*."""
+    """Remove the leading wake word (e.g. 'friday') and punctuation from *text*."""
     wake = re.escape(_wake_word())
     return re.sub(rf"^{wake}[\s,!.]+", "", text.strip(), flags=re.I).strip()
 
@@ -70,7 +70,7 @@ def parse_command(text: str) -> ParsedCommand | None:
     Parse a raw string (voice transcript **or** chat message) into a
     :class:`ParsedCommand`.
 
-    Strips the wake word before matching, so both ``"bot skip"`` and plain
+    Strips the wake word before matching, so both ``"friday skip"`` and plain
     ``"skip"`` (when the wake word has already been checked by the caller) work.
 
     Returns ``None`` when no music command is recognised.
@@ -84,7 +84,8 @@ def parse_command(text: str) -> ParsedCommand | None:
         if m:
             args = ""
             if cmd_name in ("play", "volume") and m.lastindex:
-                args = m.group(1).strip()
+                args = m.group(1).strip().rstrip(".,!?")
             return ParsedCommand(name=cmd_name, args=args)
 
     return None
+
